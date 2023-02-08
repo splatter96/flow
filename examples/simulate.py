@@ -10,7 +10,7 @@ import os
 from flow.core.experiment import Experiment
 
 from flow.core.params import AimsunParams
-from flow.utils.rllib import FlowParamsEncoder
+# from flow.utils.rllib import FlowParamsEncoder
 
 
 def parse_args(args):
@@ -76,15 +76,15 @@ if __name__ == "__main__":
         flow_params['sim'] = sim_params
 
     # Specify an emission path if they are meant to be generated.
-    if flags.gen_emission:
-        flow_params['sim'].emission_path = "./data"
+    # if flags.gen_emission:
+        # flow_params['sim'].emission_path = "./data"
 
-        # Create the flow_params object
-        fp_ = flow_params['exp_tag']
-        dir_ = flow_params['sim'].emission_path
-        with open(os.path.join(dir_, "{}.json".format(fp_)), 'w') as outfile:
-            json.dump(flow_params, outfile,
-                      cls=FlowParamsEncoder, sort_keys=True, indent=4)
+        # # Create the flow_params object
+        # fp_ = flow_params['exp_tag']
+        # dir_ = flow_params['sim'].emission_path
+        # with open(os.path.join(dir_, "{}.json".format(fp_)), 'w') as outfile:
+            # json.dump(flow_params, outfile,
+                      # cls=FlowParamsEncoder, sort_keys=True, indent=4)
 
     # Create the experiment object.
     exp = Experiment(flow_params, callables)
