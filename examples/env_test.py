@@ -1,11 +1,12 @@
 from flow.utils.registry import make_create_env
 import time
 
-from flow.controllers import IDMController, ContinuousRouter
+from flow.controllers import IDMController, ContinuousRouter, SimCarFollowingController
 from flow.core.params import SumoParams, EnvParams, InitialConfig, NetParams
-from flow.core.params import VehicleParams
+from flow.core.params import VehicleParams, SumoCarFollowingParams
 from flow.envs.ring.accel import AccelEnv, ADDITIONAL_ENV_PARAMS
 from flow.networks.ring import RingNetwork, ADDITIONAL_NET_PARAMS
+from flow.networks.double_ring import DoubleRingNetwork, ADDITIONAL_NET_PARAMS
 
 
 class Experiment:
@@ -17,10 +18,12 @@ class Experiment:
         vehicles.add(
             veh_id="idm",
             acceleration_controller=(IDMController, {}),
+            # acceleration_controller=(SimCarFollowingController, {}),
             routing_controller=(ContinuousRouter, {}),
-            num_vehicles=2)
+            car_following_params=SumoCarFollowingParams(speed_mode="aggressive"),
+            num_vehicles=5)
 
-        network = RingNetwork(
+        network = DoubleRingNetwork(
                 name='ring',
                 vehicles=vehicles,
                 net_params=NetParams(
@@ -28,6 +31,7 @@ class Experiment:
                 ),
                 initial_config=InitialConfig(
                     bunching=20,
+                    spacing="uniform"
                 ),
         )
 

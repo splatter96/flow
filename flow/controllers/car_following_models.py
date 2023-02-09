@@ -497,7 +497,9 @@ class IDMController(BaseController):
                 0, v * self.T + v * (v - lead_vel) /
                 (2 * np.sqrt(self.a * self.b)))
 
-        return self.a * (1 - (v / self.v0)**self.delta - (s_star / h)**2)
+        acc = self.a * (1 - (v / self.v0)**self.delta - (s_star / h)**2)
+        # print(f"Acceleration {acc} Speed {v}")
+        return acc
 
 
 class SimCarFollowingController(BaseController):
