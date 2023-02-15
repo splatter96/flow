@@ -13,15 +13,29 @@ class Experiment:
 
     def __init__(self):
 
-        # Add 22 normal vehicles to our network
+        # Standard idm cars for the inner circle
         vehicles = VehicleParams()
         vehicles.add(
-            veh_id="idm",
+            veh_id="idm-inner",
             acceleration_controller=(IDMController, {}),
-            # acceleration_controller=(SimCarFollowingController, {}),
             routing_controller=(ContinuousRouter, {}),
-            car_following_params=SumoCarFollowingParams(speed_mode="aggressive"),
-            num_vehicles=5)
+            car_following_params=SumoCarFollowingParams(
+                speed_mode="aggressive"
+                # speed_mode="obey_safe_speed"
+                ),
+            num_vehicles=16)
+
+        # add our rl agent car
+        # this needs to be added after the idm cars to spawn on the outer ring
+        vehicles.add(
+            veh_id="rl",
+            acceleration_controller=(IDMController, {}),
+            routing_controller=(ContinuousRouter, {}),
+            car_following_params=SumoCarFollowingParams(
+                speed_mode="aggressive"
+                # speed_mode="obey_safe_speed"
+                ),
+            num_vehicles=1)
 
         network = DoubleRingNetwork(
                 name='ring',
@@ -31,7 +45,9 @@ class Experiment:
                 ),
                 initial_config=InitialConfig(
                     bunching=20,
-                    spacing="uniform"
+                    spacing="uniform",
+                    x0 = 10,
+                    edges_distribution={"top": 4, "left": 4, "bottom": 4, "right": 4, "right_outer1": 1}
                 ),
         )
 

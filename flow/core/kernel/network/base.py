@@ -282,16 +282,16 @@ class BaseKernelNetwork(object):
                                                     num_vehicles_e)
 
             # add starting positions and lanes
-            edges_distribution = deepcopy(initial_config.edges_distribution)
+            initial_config_cp = deepcopy(initial_config)
             startpositions, startlanes = [], []
-            for key in edges_distribution:
+            for key in initial_config.edges_distribution:
                 # set the edge distribution to only include the next edge
-                initial_config.edges_distribution = [key]
+                initial_config_cp.edges_distribution = [key]
                 # set the number of vehicles that this edge can carry
-                num_vehicles = edges_distribution[key]
+                num_vehicles = initial_config.edges_distribution[key]
                 # recursively collect the next starting positions and lanes
                 pos, lane = self.gen_even_start_pos(
-                    initial_config, num_vehicles)
+                    initial_config_cp, num_vehicles)
                 startpositions.extend(pos)
                 startlanes.extend(lane)
             return startpositions, startlanes
