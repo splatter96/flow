@@ -8,8 +8,8 @@ pyglet==2.0.4
 matplotlib==3.6.3
 imutils==0.5.4
 numpydoc==1.5.0
-ray
 opencv-python==4.7.0.68
 pandas==1.5.3
+ray[rllib]==2.3.0
 tensorflow==2.11.0
-protobuf==3.9.2
+protobuf==3.15.3
