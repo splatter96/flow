@@ -11,7 +11,7 @@ ADDITIONAL_NET_PARAMS = {
     # number of lanes
     "lanes": 1,
     # speed limit for all edges
-    "speed_limit": 30,
+    "speed_limit": 20,
     # resolution of the curves on the ring
     "resolution": 40
 }
@@ -182,7 +182,7 @@ class DoubleRingNetwork(Network):
                 edgelen,
             "shape":
                 [
-                    (r2 * cos(t) + 0.15*r, r * sin(t))
+                    (r2 * cos(t) + 0.1*r, r * sin(t))
                     for t in linspace(-pi / 2, 0, resolution)
                 ]
                 }, {
@@ -198,7 +198,7 @@ class DoubleRingNetwork(Network):
                 edgelen,
             "shape":
                 [
-                    (r2 * cos(t) + 0.15*r, r * sin(t))
+                    (r2 * cos(t) + 0.1*r, r * sin(t))
                     for t in linspace(0, pi / 2, resolution)
                 ]
         }]
@@ -225,7 +225,8 @@ class DoubleRingNetwork(Network):
             "left": ["left", "bottom", "right", "top"],
             "bottom": ["bottom", "right", "top", "left"],
             "right": ["right", "top", "left", "bottom"],
-            "left": ["left", "right_outer1", "right_outer2",  "top"],
+            # deactivate following route, so cars stay in inner circle
+            # "left": ["left", "right_outer1", "right_outer2",  "top"],
             "right_outer1": ["right_outer1", "right_outer2",  "top", "left", "bottom"],
             "right_outer2": ["right_outer2",  "top", "left", "bottom", "right"],
         }
