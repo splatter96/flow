@@ -394,11 +394,8 @@ class Env(gym.Env, metaclass=ABCMeta):
         # collect observation new state associated with action
         next_observation = np.copy(states)
 
-        # test if the environment should terminate due to a collision or the
-        # time horizon being met
-        done = (self.time_counter >= self.env_params.sims_per_step *
-                (self.env_params.warmup_steps + self.env_params.horizon)
-                or crash)
+        # check if episode should terminate
+        done = self.compute_dones()
 
         # compute the info for each agent
         infos = {}
@@ -661,6 +658,21 @@ class Env(gym.Env, metaclass=ABCMeta):
             space
         """
         pass
+
+    def compute_dones(self):
+        """
+        Check if the episode should end.
+        Defaults to done if time horizon is reached or crash occured,
+        but can be overridden in new environment
+        """
+        # test if the environment should terminate due to a collision or the
+        # time horizon being met
+        crash = self.k.simulation.check_collision()
+        done = (self.time_counter >= self.env_params.sims_per_step *
+                (self.env_params.warmup_steps + self.env_params.horizon)
+                or crash)
+
+        return done
 
     def compute_reward(self, rl_actions, **kwargs):
         """Reward function for the RL agent(s).
