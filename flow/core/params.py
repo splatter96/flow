@@ -10,7 +10,8 @@ from flow.controllers.lane_change_controllers import SimLaneChangeController
 
 
 SPEED_MODES = {
-    "aggressive": 0,
+    # "aggressive": 0, # definition seems to have changed in newer sumo versions
+    "aggressive": 32,
     "obey_safe_speed": 1,
     "no_collide": 7,
     "right_of_way": 25,
