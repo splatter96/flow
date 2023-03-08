@@ -143,7 +143,7 @@ class MergePOEnv(Env):
 
         # return observation
 
-        speed = [self.k.vehicle.get_speed(veh_id) / self.k.network.max_speed()
+        speed = [max(self.k.vehicle.get_speed(veh_id) / self.k.network.max_speed(), 0.)
                  for veh_id in self.k.vehicle.get_ids()]
         pos = [self.k.vehicle.get_x_by_id(veh_id) / self.k.network.length()
                for veh_id in self.k.vehicle.get_ids()]

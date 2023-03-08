@@ -4,7 +4,8 @@ from flow.core.kernel.simulation import KernelSimulation
 from flow.core.util import ensure_dir
 import flow.config as config
 import traci.constants as tc
-import traci
+# import traci
+import libsumo as traci
 import traceback
 import os
 import time
@@ -12,6 +13,14 @@ import logging
 import subprocess
 import signal
 import csv
+
+
+import sys
+if "SUMO_HOME" in os.environ:
+    tools = os.path.join(os.environ["SUMO_HOME"], "tools")
+    sys.path.append(tools)
+else:
+    raise ImportError("Please declare the environment variable 'SUMO_HOME'")
 
 
 # Number of retries on restarting SUMO before giving up
@@ -239,10 +248,12 @@ class TraCISimulation(KernelSimulation):
                 logging.debug(" Step length: " + str(sim_params.sim_step))
 
                 # Opening the I/O thread to SUMO
-                self.sumo_proc = subprocess.Popen(
-                    sumo_call,
-                    stdout=subprocess.DEVNULL
-                )
+                # self.sumo_proc = subprocess.Popen(
+                    # sumo_call,
+                    # stdout=subprocess.DEVNULL
+                # )
+
+                traci.start(["sumo", "-c", network.cfg])
 
                 # wait a small period of time for the subprocess to activate
                 # before trying to connect with traci
@@ -251,8 +262,10 @@ class TraCISimulation(KernelSimulation):
                 else:
                     time.sleep(config.SUMO_SLEEP)
 
-                traci_connection = traci.connect(port, numRetries=100)
-                traci_connection.setOrder(0)
+                # traci_connection = traci.connect(port, numRetries=100)
+                traci_connection = traci
+                # traci_connection.setOrder(0)
+
                 traci_connection.simulationStep()
 
                 return traci_connection

@@ -16,8 +16,10 @@ from flow.utils.flow_warnings import deprecated_attribute
 import gym
 from gym.spaces import Box
 from gym.spaces import Tuple
-from traci.exceptions import FatalTraCIError
-from traci.exceptions import TraCIException
+# from traci.exceptions import FatalTraCIError
+# from traci.exceptions import TraCIException
+from libsumo import FatalTraCIError
+from libsumo import TraCIException
 
 import sumolib
 

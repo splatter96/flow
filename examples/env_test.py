@@ -16,8 +16,8 @@ from ray.tune.registry import register_env
 ######
 # META CONFIG
 #####
-TRAIN = False
-EVAL = True
+TRAIN = True
+EVAL = False
 
 class Experiment:
 
@@ -65,9 +65,10 @@ class Experiment:
             # sumo-related parameters (see flow.core.params.SumoParams)
             sim=SumoParams(
                 sim_step=0.1,
-                render=True,
-                # render=False,
-                # restart_instance=True
+                # render=not TRAIN,
+                render=False,
+                # restart_instance=TRAIN
+                restart_instance=False
             ),
 
             # environment related parameters (see flow.core.params.EnvParams)
@@ -104,17 +105,18 @@ class Experiment:
     def run(self, num_runs, rl_actions=None, convert_to_csv=False):
 
         if TRAIN:
-            ray.init()
-            config = PPOConfig().environment(env="myMergeEnv").rollouts(num_rollout_workers=1)
+            ray.init(address='auto')
+            # config = PPOConfig().environment(env="myMergeEnv").rollouts(num_rollout_workers=7)#.resources(num_cpus_per_worker=7)
+            config = PPOConfig().environment(env="myMergeEnv").rollouts(num_rollout_workers=1).resources(num_cpus_per_worker=7)
             algo = config.build(use_copy=False)
 
             for _ in range(num_runs):
                 print(algo.train())
 
-            algo.save("./checkpoint")
+            algo.save("./checkpoint2")
 
         elif EVAL:
-            algo = Algorithm.from_checkpoint("./checkpoint/checkpoint_000050")
+            algo = Algorithm.from_checkpoint("./checkpoint2/checkpoint_000050")
             num_steps = self.env.env_params.horizon
 
             for i in range(num_runs):
@@ -140,7 +142,11 @@ class Experiment:
                 state = self.env.reset()
 
                 for j in range(num_steps):
+                    start = time.time()
                     state, reward, done, _ = self.env.step(None)
+                    end = time.time()
+                    print(f"Episode took {end-start} with {j} steps")
+
                     ret += reward
                     if done:
                         break
@@ -151,5 +157,5 @@ class Experiment:
 
 if __name__ == "__main__":
     exp = Experiment()
-    exp.run(num_runs=50)
+    exp.run(num_runs=10)
 
