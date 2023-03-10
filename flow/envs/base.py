@@ -250,8 +250,9 @@ class Env(gym.Env, metaclass=ABCMeta):
         self.k.close()
 
         # killed the sumo process if using sumo/TraCI
-        if self.simulator == 'traci':
-            self.k.simulation.sumo_proc.kill()
+        # if self.simulator == 'traci':
+            # # self.k.simulation.sumo_proc.kill()
+            # self.k.simulation.teardown_sumo()
 
         if render is not None:
             self.sim_params.render = render
@@ -435,7 +436,7 @@ class Env(gym.Env, metaclass=ABCMeta):
         if self.should_render:
             self.sim_params.render = True
             # got to restart the simulation to make it actually display anything
-            self.restart_simulation(self.sim_params)
+            # self.restart_simulation(self.sim_params)
 
         # warn about not using restart_instance when using inflows
         if len(self.net_params.inflows.get()) > 0 and \
