@@ -220,10 +220,11 @@ class TwoLoopsOneMergingScenario(Network):
     def specify_routes(self, net_params):
         """See parent class."""
         rts = {
-            # "top": ["top", "left", "bottom", "right", "top"],
             "top": ["top", "left", "center", "top"],
             "bottom": ["bottom", "right", "top", "left", "bottom"],
             "right": ["right", "top", "left", "bottom"],
+            # "left": ["left", "bottom", "right", "top"],
+            # "center": ["center", "left", "bottom"]
             "left": ["left", "center", "left"],
             "center": ["center", "left", "center"]
         }
@@ -238,8 +239,8 @@ class TwoLoopsOneMergingScenario(Network):
         ring_edgelen = pi * r
 
         edgestarts = [
-            ("left", self.intersection_length),
-            ("center", ring_edgelen + 2 * self.intersection_length),
+            ("center", self.intersection_length),
+            ("left", ring_edgelen + 2 * self.intersection_length),
             ("bottom", 2 * ring_edgelen + 2 * self.intersection_length),
             ("right", 2 * ring_edgelen + lane_length +
              2 * self.intersection_length + self.junction_length),
@@ -257,12 +258,10 @@ class TwoLoopsOneMergingScenario(Network):
         ring_edgelen = pi * r
 
         internal_edgestarts = [
-            (":top_left", 0), (":bottom_left",
-                               ring_edgelen + self.intersection_length),
-            (":bottom_right",
-             2 * ring_edgelen + lane_length + 2 * self.intersection_length),
-            (":top_right", 3 * ring_edgelen + lane_length +
-             2 * self.intersection_length + self.junction_length)
+            (":bottom_left", 0), 
+            (":top_left", ring_edgelen + self.intersection_length),
+            (":bottom_right", 2 * ring_edgelen + lane_length + 2 * self.intersection_length),
+            (":top_right", 3 * ring_edgelen + lane_length + 2 * self.intersection_length + self.junction_length)
         ]
 
         return internal_edgestarts
