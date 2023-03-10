@@ -106,7 +106,7 @@ class MergePOEnv(Env):
         """See class definition."""
 
         speed = [self.k.vehicle.get_speed(veh_id) / self.k.network.max_speed()
-                 for veh_id in self.k.vehicle.get_ids()]
+                 for veh_id in self.sorted_ids]
         pos = [self.k.vehicle.get_x_by_id(veh_id) / self.k.network.length()
                for veh_id in self.sorted_ids]
 
