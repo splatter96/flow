@@ -116,23 +116,18 @@ class MergePOEnv(Env):
             # print(self.k.vehicle.get_edge(id))
             # print(self.k.vehicle.get_2d_position(id))
 
-        print(pos)
-
         return np.array(speed + pos)
 
     def compute_reward(self, rl_actions, **kwargs):
         """See class definition."""
-        # TODO
-
         # penalty of -1 in case of collision
         if self.k.simulation.check_collision():
             return -1
 
-        # rl_id = self.k.vehicle.get_rl_ids()[0] #assume single rl agent
-        if self.k.vehicle.get_edge("rl_0") == 'left': # agent reached host lane
+        if self._merge_success():
             return 1
 
-        return 0 
+        return 0
 
     def compute_dones(self):
         """
@@ -140,10 +135,13 @@ class MergePOEnv(Env):
         We also want the episode to end when the agent has
         sucessfully merged.
         """
+        return super().compute_dones() or self._merge_success()
 
-        # success = self.k.vehicle.get_edge('rl_0') == 'left'
+    def _merge_success(self):
+        rl_id = self.k.vehicle.get_rl_ids()[0] #assume single rl agent
+        agent_pos = self.k.vehicle.get_x_by_id(rl_id)
 
-        return super().compute_dones() #or success
+        return agent_pos > 270 and agent_pos < 300
 
     def additional_command(self):
         """See parent class.
