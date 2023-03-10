@@ -17,7 +17,7 @@ from ray.tune.registry import register_env
 # META CONFIG
 #####
 TRAIN = False
-EVAL = False
+EVAL = True
 USE_GPU = False
 CHECKPOINT_FREQ = 10
 
@@ -106,11 +106,12 @@ class Experiment:
 
         if TRAIN:
             ray.init(address='auto')
-            config = PPOConfig().environment(env="myMergeEnv").rollouts(num_rollout_workers=1).resources(num_cpus_per_worker=7)
-            algo = config.build(use_copy=False)
+            config = PPOConfig().environment(env="myMergeEnv").rollouts(num_rollout_workers=7).resources(num_cpus_per_worker=1)
 
             if USE_GPU:
                 config.resources(num_gpus=1)
+
+            algo = config.build(use_copy=False)
 
             for i in range(num_runs):
                 print(algo.train())
@@ -121,8 +122,7 @@ class Experiment:
             algo.save()
 
         elif EVAL:
-            pol = Policy.from_checkpoint("/home/paul/checkpoint_000400/")['default_policy']
-
+            pol = Policy.from_checkpoint("/home/paul/checkpoint_000100/")['default_policy']
             num_steps = self.env.env_params.horizon
 
             for i in range(num_runs):
