@@ -10,13 +10,14 @@ from flow.networks.loop_merge import TwoLoopsOneMergingScenario, ADDITIONAL_NET_
 import ray
 from ray.rllib.algorithms.ppo import PPOConfig
 from ray.rllib.algorithms.algorithm import Algorithm
+from ray.rllib.policy.policy import Policy
 from ray.tune.registry import register_env
 
 
 ######
 # META CONFIG
 #####
-TRAIN = True
+TRAIN = False
 EVAL = False
 
 class Experiment:
@@ -34,7 +35,8 @@ class Experiment:
                 min_gap=0.2,
                 max_speed=10,
                 ),
-            num_vehicles=14)
+            # num_vehicles=14)
+            num_vehicles=4)
 
         # add our rl agent car
         # this needs to be added after the idm cars to spawn on the outer ring
@@ -47,7 +49,7 @@ class Experiment:
                 max_speed=20
                 ),
             color='red',
-            num_vehicles=1)
+            num_vehicles=0)
 
         flow_params = dict(
             # name of the experiment
@@ -66,9 +68,9 @@ class Experiment:
             sim=SumoParams(
                 sim_step=0.1,
                 # render=not TRAIN,
-                render=False,
                 # restart_instance=TRAIN
-                restart_instance=False
+                restart_instance=True,
+                render=True,
             ),
 
             # environment related parameters (see flow.core.params.EnvParams)
@@ -92,7 +94,7 @@ class Experiment:
             initial=InitialConfig(
                 bunching=20,
                 spacing="random",
-                edges_distribution={"top": 0, "bottom": 0, "left": 7, "center": 7, "right": 1},
+                edges_distribution={"top": 0, "bottom": 0, "left": 0, "center": 4, "right": 0},
                 min_gap=0.5 # add a minimum gap of 0.5m between the spawning vehicles so no erros occur
             ),
         )
@@ -116,7 +118,7 @@ class Experiment:
             algo.save("./checkpoint2")
 
         elif EVAL:
-            algo = Algorithm.from_checkpoint("./checkpoint2/checkpoint_000050")
+            pol = Policy.from_checkpoint("/home/paul/checkpoint_000400/")['default_policy']
             num_steps = self.env.env_params.horizon
 
             for i in range(num_runs):
@@ -124,7 +126,7 @@ class Experiment:
                 state = self.env.reset()
 
                 for j in range(num_steps):
-                    action = algo.compute_single_action(state)
+                    action = pol.compute_single_action(state)[0]
                     state, reward, done, _ = self.env.step(action)
                     ret += reward
                     if done:
@@ -141,16 +143,16 @@ class Experiment:
                 ret = 0
                 state = self.env.reset()
 
+                start = time.time()
                 for j in range(num_steps):
-                    start = time.time()
                     state, reward, done, _ = self.env.step(None)
-                    end = time.time()
-                    print(f"Episode took {end-start} with {j} steps")
 
                     ret += reward
                     if done:
                         break
 
+                end = time.time()
+                print(f"Episode took {end-start} with {j} steps")
                 print("Round {0}, return: {1}".format(i, ret))
 
             self.env.terminate()

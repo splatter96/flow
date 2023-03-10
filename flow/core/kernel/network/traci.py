@@ -263,7 +263,7 @@ class TraCIKernelNetwork(BaseKernelNetwork):
                 # in case several internal links are being generalized for
                 # by a single element (for backwards compatibility)
                 edge_name = edge.rsplit('_', 1)[0]
-                return self.total_edgestarts_dict.get(edge_name, -1001)
+                return self.total_edgestarts_dict.get(edge_name, -1001) + position
         else:
             return self.total_edgestarts_dict[edge] + position
 
