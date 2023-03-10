@@ -13,12 +13,13 @@ from ray.rllib.algorithms.algorithm import Algorithm
 from ray.rllib.policy.policy import Policy
 from ray.tune.registry import register_env
 
-
 ######
 # META CONFIG
 #####
 TRAIN = False
 EVAL = False
+USE_GPU = False
+CHECKPOINT_FREQ = 10
 
 class Experiment:
 
@@ -35,8 +36,7 @@ class Experiment:
                 min_gap=0.2,
                 max_speed=10,
                 ),
-            # num_vehicles=14)
-            num_vehicles=4)
+            num_vehicles=14)
 
         # add our rl agent car
         # this needs to be added after the idm cars to spawn on the outer ring
@@ -49,7 +49,7 @@ class Experiment:
                 max_speed=20
                 ),
             color='red',
-            num_vehicles=0)
+            num_vehicles=1)
 
         flow_params = dict(
             # name of the experiment
@@ -67,10 +67,8 @@ class Experiment:
             # sumo-related parameters (see flow.core.params.SumoParams)
             sim=SumoParams(
                 sim_step=0.1,
-                # render=not TRAIN,
-                # restart_instance=TRAIN
-                restart_instance=True,
-                render=True,
+                render=not TRAIN,
+                restart_instance=not TRAIN,
             ),
 
             # environment related parameters (see flow.core.params.EnvParams)
@@ -94,7 +92,7 @@ class Experiment:
             initial=InitialConfig(
                 bunching=20,
                 spacing="random",
-                edges_distribution={"top": 0, "bottom": 0, "left": 0, "center": 4, "right": 0},
+                edges_distribution={"top": 0, "bottom": 0, "left": 7, "center": 7, "right": 1},
                 min_gap=0.5 # add a minimum gap of 0.5m between the spawning vehicles so no erros occur
             ),
         )
@@ -108,14 +106,19 @@ class Experiment:
 
         if TRAIN:
             ray.init(address='auto')
-            # config = PPOConfig().environment(env="myMergeEnv").rollouts(num_rollout_workers=7)#.resources(num_cpus_per_worker=7)
-            config = PPOConfig().environment(env="myMergeEnv").rollouts(num_rollout_workers=1).resources(num_cpus_per_worker=7)
+            config = PPOConfig().environment(env="myMergeEnv").rollouts(num_rollout_workers=7).resources(num_cpus_per_worker=1)
             algo = config.build(use_copy=False)
 
-            for _ in range(num_runs):
+            if USE_GPU:
+                config.resources(num_gpus=1)
+
+            for i in range(num_runs):
                 print(algo.train())
 
-            algo.save("./checkpoint2")
+                if i % CHECKPOINT_FREQ == 0:
+                    algo.save()
+
+            algo.save()
 
         elif EVAL:
             pol = Policy.from_checkpoint("/home/paul/checkpoint_000400/")['default_policy']
