@@ -196,8 +196,8 @@ class TraCISimulation(KernelSimulation):
                 # command used to start sumo
                 sumo_call = [
                     sumo_binary, "-c", network.cfg,
-                    "--remote-port", str(sim_params.port),
-                    "--num-clients", str(sim_params.num_clients),
+                    # "--remote-port", str(sim_params.port),
+                    # "--num-clients", str(sim_params.num_clients),
                     "--step-length", str(sim_params.sim_step)
                 ]
 
@@ -253,7 +253,8 @@ class TraCISimulation(KernelSimulation):
                     # stdout=subprocess.DEVNULL
                 # )
 
-                traci.start(["sumo", "-c", network.cfg])
+                # traci.start([sumo_binary, "-c", network.cfg])
+                traci.start(sumo_call)
 
                 # wait a small period of time for the subprocess to activate
                 # before trying to connect with traci
@@ -267,6 +268,7 @@ class TraCISimulation(KernelSimulation):
                 # traci_connection.setOrder(0)
 
                 traci_connection.simulationStep()
+                self.conn = traci_connection
 
                 return traci_connection
             except Exception as e:
@@ -278,7 +280,8 @@ class TraCISimulation(KernelSimulation):
     def teardown_sumo(self):
         """Kill the sumo subprocess instance."""
         try:
-            os.killpg(self.sumo_proc.pid, signal.SIGTERM)
+            # os.killpg(self.sumo_proc.pid, signal.SIGTERM)
+            self.conn.close()
         except Exception as e:
             print("Error during teardown: {}".format(e))
 

@@ -1039,7 +1039,7 @@ class TraCIVehicle(KernelVehicle):
                 if self._force_color_update or 'color' not in \
                         self.type_parameters[self.get_type(veh_id)]:
                     # color rl vehicles red
-                    self.set_color(veh_id=veh_id, color=RED)
+                    self.set_color(veh_id, RED)
             except (FatalTraCIError, TraCIException) as e:
                 print('Error when updating rl vehicle colors:', e)
 
@@ -1050,7 +1050,7 @@ class TraCIVehicle(KernelVehicle):
                 # If vehicle is already being colored via argument to vehicles.add(), don't re-color it.
                 if self._force_color_update or 'color' not in \
                         self.type_parameters[self.get_type(veh_id)]:
-                    self.set_color(veh_id=veh_id, color=color)
+                    self.set_color(veh_id, color)
             except (FatalTraCIError, TraCIException) as e:
                 print('Error when updating human vehicle colors:', e)
 
@@ -1096,7 +1096,7 @@ class TraCIVehicle(KernelVehicle):
         """
         r, g, b = color
         self.kernel_api.vehicle.setColor(
-            vehID=veh_id, color=(r, g, b, 255))
+            veh_id, (r, g, b, 255))
 
     def add(self, veh_id, type_id, edge, pos, lane, speed):
         """See parent class."""
