@@ -81,9 +81,6 @@ class MergePOEnv(Env):
             dtype=np.float32)
 
     @property
-    # def observation_space(self):
-        # """See class definition."""
-        # return Box(low=0, high=1, shape=(5 * 1, ), dtype=np.float32)
     def observation_space(self):
         """See class definition."""
         self.obs_var_labels = ['Velocity', 'Absolute_pos']
@@ -96,11 +93,14 @@ class MergePOEnv(Env):
 
     def _apply_rl_actions(self, rl_actions):
         """See class definition."""
-        for i, rl_id in enumerate(self.rl_veh):
-            # ignore rl vehicles outside the network
-            if rl_id not in self.k.vehicle.get_rl_ids():
-                continue
-            self.k.vehicle.apply_acceleration(rl_id, rl_actions[i])
+        # for i, rl_id in enumerate(self.rl_veh):
+            # # ignore rl vehicles outside the network
+            # if rl_id not in self.k.vehicle.get_rl_ids():
+                # continue
+            # self.k.vehicle.apply_acceleration(rl_id, rl_actions[i])
+
+        rl_id = self.k.vehicle.get_rl_ids()[0] #assume single rl agent
+        self.k.vehicle.apply_acceleration(rl_id, rl_actions)
 
     def get_state(self, rl_id=None, **kwargs):
         """See class definition."""
