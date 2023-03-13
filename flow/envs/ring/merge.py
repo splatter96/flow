@@ -69,6 +69,8 @@ class MergePOEnv(Env):
         self.prev_pos = dict()
         self.absolute_position = dict()
 
+        self.prev_rl_dist = 0
+
         super().__init__(env_params, sim_params, network, simulator)
 
     @property
@@ -120,14 +122,24 @@ class MergePOEnv(Env):
 
     def compute_reward(self, rl_actions, **kwargs):
         """See class definition."""
-        # penalty of -1 in case of collision
+        reward = 0
+
+        # penalty of -10 in case of collision
         if self.k.simulation.check_collision():
-            return -1
+            reward += -10
 
+        # reward for successfull merge
         if self._merge_success():
-            return 1
+            reward += 10
 
-        return 0
+        rl_id = self.k.vehicle.get_rl_ids()[0] #assume single rl agent
+        dist = self.k.vehicle.get_distance(rl_id)
+
+        if dist > 0: #avaid error case
+            reward += 0.05 * (dist - self.prev_rl_dist)
+            self.prev_rl_dist = dist
+
+        return reward
 
     def compute_dones(self):
         """
@@ -189,8 +201,6 @@ class MergePOEnv(Env):
         """Return the absolute position of a vehicle."""
         return self.absolute_position.get(veh_id, -1001)
 
-
-
     def reset(self):
         """See parent class.
 
@@ -200,5 +210,7 @@ class MergePOEnv(Env):
         for veh_id in self.k.vehicle.get_ids():
             self.absolute_position[veh_id] = self.k.vehicle.get_x_by_id(veh_id)
             self.prev_pos[veh_id] = self.k.vehicle.get_x_by_id(veh_id)
+
+        self.prev_rl_dist = 0
 
         return super().reset()
