@@ -108,15 +108,26 @@ class MergePOEnv(Env):
         """See class definition."""
 
         speed = [max(self.k.vehicle.get_speed(veh_id) / self.k.network.max_speed(), 0.)
-                 for veh_id in self.sorted_ids]
-        pos = [self.k.vehicle.get_x_by_id(veh_id) / self.k.network.length()
-               for veh_id in self.sorted_ids]
+                 for veh_id in self.k.vehicle.get_ids()]
+        # pos = [self.k.vehicle.get_x_by_id(veh_id) / self.k.network.length()
+               # for veh_id in self.sorted_ids]
+
+        pos = [(self.k.vehicle.get_driving_distance(veh_id, "left", 200) - 200) / 200
+               for veh_id in self.k.vehicle.get_ids()]
 
         # for id in self.k.vehicle.get_ids():
             # print(self.k.vehicle.get_x_by_id(id))
             # print(self.k.vehicle.get_position(id))
             # print(self.k.vehicle.get_edge(id))
             # print(self.k.vehicle.get_2d_position(id))
+            # posi = self.k.vehicle.get_driving_distance(id, "left", 200) - 200
+            # if posi < -200:
+                # print(f"error {id} {posi}")
+
+        # print(self.k.vehicle.get_driving_distance("rl_0", "left", 200) - 200)
+
+        # print(self.k.network.length())
+        # print(pos)
 
         return np.array(speed + pos)
 

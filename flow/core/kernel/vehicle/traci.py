@@ -1172,6 +1172,9 @@ class TraCIVehicle(KernelVehicle):
         """See parent class."""
         return self.__sumo_obs.get(veh_id, {}).get(tc.VAR_DISTANCE, error)
 
+    def get_driving_distance(self, veh_id, edgeID, position, laneIndex=0):
+        return self.kernel_api.vehicle.getDrivingDistance(veh_id, edgeID, position, laneIndex)
+
     def get_road_grade(self, veh_id):
         """See parent class."""
         # TODO : Brent
