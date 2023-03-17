@@ -265,3 +265,37 @@ class TwoLoopsOneMergingScenario(Network):
         ]
 
         return internal_edgestarts
+
+    def gen_custom_start_pos(self, cls, net_params, initial_config, num_vehicles):
+        """Generate a user defined set of starting positions.
+
+        Parameters
+        ----------
+        cls : flow.core.kernel.network.BaseKernelNetwork
+            flow network kernel, with all the relevant methods implemented
+        net_params : flow.core.params.NetParams
+            network-specific parameters
+        initial_config : flow.core.params.InitialConfig
+            see flow/core/params.py
+        num_vehicles : int
+            number of vehicles to be placed on the network
+
+        Returns
+        -------
+        list of tuple (str, int)
+            list of start positions [(edge0, pos0), (edge1, pos1), ...]
+        list of int
+            list of start lanes
+        """
+
+        r = self.net_params.additional_params["ring_radius"]
+
+        ring_edgelen = pi * r
+
+        startpositions, startlanes = cls.gen_random_start_pos(
+                initial_config, num_vehicles-1)
+
+        startpositions.append(('right', ring_edgelen / 1.5))
+        startlanes.append(0)
+
+        return startpositions, startlanes
