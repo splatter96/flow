@@ -15,7 +15,7 @@ ADDITIONAL_NET_PARAMS = {
     # number of lanes in the outer loop
     "outer_lanes": 1,
     # max speed limit in the network
-    "speed_limit": 30,
+    "speed_limit": 50,
     # resolution of the curved portions
     "resolution": 40,
 }

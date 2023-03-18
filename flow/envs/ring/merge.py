@@ -15,9 +15,9 @@ import collections
 
 ADDITIONAL_ENV_PARAMS = {
     # maximum acceleration for autonomous vehicles, in m/s^2
-    "max_accel": 3,
+    "max_accel": 9,
     # maximum deceleration for autonomous vehicles, in m/s^2
-    "max_decel": 3,
+    "max_decel": 6,
     # specifies whether vehicles are to be sorted by position during a
     # simulation step. If set to True, the environment parameter
     # self.sorted_ids will return a list of all vehicles sorted in accordance
@@ -164,7 +164,7 @@ class MergePOEnv(Env):
         rl_id = self.k.vehicle.get_rl_ids()[0] #assume single rl agent
         agent_pos = self.k.vehicle.get_x_by_id(rl_id)
 
-        return agent_pos > 270 and agent_pos < 300
+        return agent_pos > 240 and agent_pos < 300
 
     def additional_command(self):
         """See parent class.

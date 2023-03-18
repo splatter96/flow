@@ -16,10 +16,15 @@ from ray.tune.registry import register_env
 ######
 # META CONFIG
 #####
-TRAIN = False
-EVAL = True
+TRAIN = True
+EVAL = False
 USE_GPU = False
 CHECKPOINT_FREQ = 10
+
+# time horizon of a single rollout
+HORIZON = 700
+# number of rollouts per training iteration
+N_ROLLOUTS = 20
 
 class Experiment:
 
@@ -37,6 +42,7 @@ class Experiment:
                 max_speed=10,
                 ),
             num_vehicles=14)
+            # num_vehicles=10)
 
         # add our rl agent car
         # this needs to be added after the idm cars to spawn on the outer ring
@@ -46,7 +52,7 @@ class Experiment:
             routing_controller=(ContinuousRouter, {}),
             car_following_params=SumoCarFollowingParams(
                 speed_mode="aggressive",
-                max_speed=20
+                max_speed=50
                 ),
             color='red',
             num_vehicles=1)
@@ -67,13 +73,15 @@ class Experiment:
             # sumo-related parameters (see flow.core.params.SumoParams)
             sim=SumoParams(
                 sim_step=0.1,
-                render=not TRAIN,
-                restart_instance=not TRAIN,
+                render= not TRAIN,
+                # render= False,
+                restart_instance= not TRAIN,
+                # restart_instance= False,
             ),
 
             # environment related parameters (see flow.core.params.EnvParams)
             env=EnvParams(
-                horizon=1500,
+                horizon=HORIZON,
                 additional_params=ADDITIONAL_ENV_PARAMS
             ),
 
@@ -91,8 +99,9 @@ class Experiment:
             # reset (see flow.core.params.InitialConfig)
             initial=InitialConfig(
                 bunching=20,
-                spacing="random",
-                edges_distribution={"top": 0, "bottom": 0, "left": 7, "center": 7, "right": 1},
+                spacing="custom",
+                # edges_distribution={"top": 0, "bottom": 0, "left": 7, "center": 7, "right": 1},
+                edges_distribution={"top": 0, "bottom": 0, "left": 7, "center": 7, "right": 0},
                 min_gap=0.5 # add a minimum gap of 0.5m between the spawning vehicles so no erros occur
             ),
         )
@@ -107,6 +116,25 @@ class Experiment:
         if TRAIN:
             ray.init(address='auto')
             config = PPOConfig().environment(env="myMergeEnv").rollouts(num_rollout_workers=7).resources(num_cpus_per_worker=1)
+            # config.exploration(explore=True, exploration_config={
+                                                # "type": "EpsilonGreedy",
+                                                # "initial_epsilon": 1.0,
+                                                # "final_epsilon": 0.02,
+                                            # })
+            batch_size = HORIZON * N_ROLLOUTS
+            config.training(gamma=0.999, train_batch_size=batch_size, lambda_=0.97, use_gae=True, kl_target=0.02, num_sgd_iter=10)
+            config.model.update({'fcnet_hiddens': [32, 32, 32]})
+            config.horizon = HORIZON
+
+            # config["num_workers"] = n_cpus
+            # config["train_batch_size"] = horizon * n_rollouts
+            # config["gamma"] = 0.999  # discount rate
+            # config["model"].update({"fcnet_hiddens": [32, 32, 32]})
+            # config["use_gae"] = True
+            # config["lambda"] = 0.97
+            # config["kl_target"] = 0.02
+            # config["num_sgd_iter"] = 10
+            # config["horizon"] = horizon
 
             if USE_GPU:
                 config.resources(num_gpus=1)
@@ -122,7 +150,7 @@ class Experiment:
             algo.save()
 
         elif EVAL:
-            pol = Policy.from_checkpoint("/home/paul/checkpoint_000100/")['default_policy']
+            pol = Policy.from_checkpoint("/home/paul/checkpoint_000121/")['default_policy']
             num_steps = self.env.env_params.horizon
 
             for i in range(num_runs):
@@ -131,6 +159,7 @@ class Experiment:
 
                 for j in range(num_steps):
                     action = pol.compute_single_action(state)[0]
+                    # print(action)
                     state, reward, done, _ = self.env.step(action)
                     ret += reward
                     if done:
