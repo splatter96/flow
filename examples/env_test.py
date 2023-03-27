@@ -1,4 +1,4 @@
-drom flow.utils.registry import make_create_env
+from flow.utils.registry import make_create_env
 import time
 
 from flow.controllers import IDMController, ContinuousRouter, SimCarFollowingController, RLController
