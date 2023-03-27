@@ -1,4 +1,4 @@
-from flow.utils.registry import make_create_env
+drom flow.utils.registry import make_create_env
 import time
 
 from flow.controllers import IDMController, ContinuousRouter, SimCarFollowingController, RLController
@@ -16,13 +16,13 @@ from ray.tune.registry import register_env
 ######
 # META CONFIG
 #####
-TRAIN = True
+TRAIN = False
 EVAL = False
 USE_GPU = False
 CHECKPOINT_FREQ = 10
 
 # time horizon of a single rollout
-HORIZON = 700
+HORIZON = 1000
 # number of rollouts per training iteration
 N_ROLLOUTS = 20
 
@@ -41,8 +41,8 @@ class Experiment:
                 min_gap=0.2,
                 max_speed=10,
                 ),
-            num_vehicles=14)
-            # num_vehicles=10)
+            # num_vehicles=14)
+            num_vehicles=10)
 
         # add our rl agent car
         # this needs to be added after the idm cars to spawn on the outer ring
@@ -98,11 +98,13 @@ class Experiment:
             # parameters specifying the positioning of vehicles upon initialization/
             # reset (see flow.core.params.InitialConfig)
             initial=InitialConfig(
-                bunching=20,
+                bunching=0,
                 spacing="custom",
-                # edges_distribution={"top": 0, "bottom": 0, "left": 7, "center": 7, "right": 1},
-                edges_distribution={"top": 0, "bottom": 0, "left": 7, "center": 7, "right": 0},
-                min_gap=0.5 # add a minimum gap of 0.5m between the spawning vehicles so no erros occur
+                # edges_distribution={"top": 0, "bottom": 0, "left": 7, "center": 7, "right": 0},
+                edges_distribution={"top": 0, "bottom": 0, "left": 5, "center": 5, "right": 0},
+                min_gap=0.5, # add a minimum gap of 0.5m between the spawning vehicles so no erros occur
+                perturbation=20,
+                shuffle = True,
             ),
         )
 
@@ -126,16 +128,6 @@ class Experiment:
             config.model.update({'fcnet_hiddens': [32, 32, 32]})
             config.horizon = HORIZON
 
-            # config["num_workers"] = n_cpus
-            # config["train_batch_size"] = horizon * n_rollouts
-            # config["gamma"] = 0.999  # discount rate
-            # config["model"].update({"fcnet_hiddens": [32, 32, 32]})
-            # config["use_gae"] = True
-            # config["lambda"] = 0.97
-            # config["kl_target"] = 0.02
-            # config["num_sgd_iter"] = 10
-            # config["horizon"] = horizon
-
             if USE_GPU:
                 config.resources(num_gpus=1)
 
@@ -150,21 +142,35 @@ class Experiment:
             algo.save()
 
         elif EVAL:
-            pol = Policy.from_checkpoint("/home/paul/checkpoint_000121/")['default_policy']
+            config = PPOConfig().environment(env="myMergeEnv").rollouts(num_rollout_workers=0)
+
+            batch_size = HORIZON * N_ROLLOUTS
+            config.training(gamma=0.999, train_batch_size=batch_size, lambda_=0.97, use_gae=True, kl_target=0.02, num_sgd_iter=10)
+            config.model.update({'fcnet_hiddens': [32, 32, 32]})
+            config.horizon = HORIZON
+
+            alg = config.build(use_copy=False)
+            # alg.restore("/home/paul/checkpoint_000400")
+            alg.restore("/home/paul/checkpoint_000800")
+
+            # pol = Policy.from_checkpoint("/home/paul/checkpoint_000171/")['default_policy']
+
             num_steps = self.env.env_params.horizon
+            print(f"{num_steps=}")
 
             for i in range(num_runs):
                 ret = 0
                 state = self.env.reset()
 
                 for j in range(num_steps):
-                    action = pol.compute_single_action(state)[0]
-                    # print(action)
+                    action = alg.compute_single_action(state)
                     state, reward, done, _ = self.env.step(action)
                     ret += reward
+
                     if done:
                         break
 
+                print(f"Run took {j} steps")
                 print("Round {0}, return: {1}".format(i, ret))
 
             self.env.terminate()

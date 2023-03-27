@@ -5,6 +5,8 @@ from flow.core.params import InitialConfig
 from flow.core.params import TrafficLightParams
 from numpy import pi, sin, cos, linspace
 
+import random
+
 ADDITIONAL_NET_PARAMS = {
     # radius of the loops
     "ring_radius": 50,
@@ -292,9 +294,14 @@ class TwoLoopsOneMergingScenario(Network):
 
         ring_edgelen = pi * r
 
+        left_veh = random.randint(0, num_vehicles-1)
+        initial_config.edges_distribution['left'] = left_veh
+        initial_config.edges_distribution['center'] = num_vehicles -1  - left_veh
+
         startpositions, startlanes = cls.gen_random_start_pos(
                 initial_config, num_vehicles-1)
 
+        # add our rl agent to our network on the right onramp
         startpositions.append(('right', ring_edgelen / 1.5))
         startlanes.append(0)
 

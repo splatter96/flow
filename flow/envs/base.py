@@ -277,8 +277,8 @@ class Env(gym.Env, metaclass=ABCMeta):
         sumo to collect state information each step.
         """
         # determine whether to shuffle the vehicles
-        if self.initial_config.shuffle:
-            random.shuffle(self.initial_ids)
+        # if self.initial_config.shuffle:
+            # random.shuffle(self.initial_ids)
 
         # generate starting position for vehicles in the network
         start_pos, start_lanes = self.k.network.generate_starting_positions(

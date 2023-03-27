@@ -15,9 +15,9 @@ import collections
 
 ADDITIONAL_ENV_PARAMS = {
     # maximum acceleration for autonomous vehicles, in m/s^2
-    "max_accel": 9,
+    "max_accel": 4,
     # maximum deceleration for autonomous vehicles, in m/s^2
-    "max_decel": 6,
+    "max_decel": 4,
     # specifies whether vehicles are to be sorted by position during a
     # simulation step. If set to True, the environment parameter
     # self.sorted_ids will return a list of all vehicles sorted in accordance
@@ -87,9 +87,10 @@ class MergePOEnv(Env):
         """See class definition."""
         self.obs_var_labels = ['Velocity', 'Absolute_pos']
         return Box(
-            low=0,
+            low=-1,
             high=1,
             shape=(2 * self.initial_vehicles.num_vehicles, ),
+            # shape=(2 * 3, ),
             dtype=np.float32)
 
 
@@ -108,26 +109,38 @@ class MergePOEnv(Env):
         """See class definition."""
 
         speed = [max(self.k.vehicle.get_speed(veh_id) / self.k.network.max_speed(), 0.)
-                 for veh_id in self.k.vehicle.get_ids()]
-        # pos = [self.k.vehicle.get_x_by_id(veh_id) / self.k.network.length()
-               # for veh_id in self.sorted_ids]
+                 for veh_id in self.sorted_ids]
+        pos = [(max(self.k.vehicle.get_driving_distance(veh_id, "left", 200) - 213, -200)) / 200
+                for veh_id in self.sorted_ids]
 
-        pos = [(self.k.vehicle.get_driving_distance(veh_id, "left", 200) - 200) / 200
-               for veh_id in self.k.vehicle.get_ids()]
+        rl_id = self.k.vehicle.get_rl_ids()[0] #assume single rl agent
+        speed.append(max(self.k.vehicle.get_speed(rl_id) / self.k.network.max_speed(), 0.))
+        pos.append(max(self.k.vehicle.get_driving_distance(rl_id, "left", 200) - 217, -200) / 200)
 
-        # for id in self.k.vehicle.get_ids():
-            # print(self.k.vehicle.get_x_by_id(id))
-            # print(self.k.vehicle.get_position(id))
-            # print(self.k.vehicle.get_edge(id))
-            # print(self.k.vehicle.get_2d_position(id))
-            # posi = self.k.vehicle.get_driving_distance(id, "left", 200) - 200
-            # if posi < -200:
-                # print(f"error {id} {posi}")
+        # print(max(self.k.vehicle.get_driving_distance(rl_id, "left", 200) - 217, -180))
+        # print(np.array(pos)*200)
 
-        # print(self.k.vehicle.get_driving_distance("rl_0", "left", 200) - 200)
+        # new approach
+        # left_ids = list(filter(lambda x: (self._get_abs_position(x) <= 0), self.k.vehicle.get_human_ids()))
+        # right_ids = list(filter(lambda x: (self._get_abs_position(x) > 0), self.k.vehicle.get_human_ids()))
 
-        # print(self.k.network.length())
-        # print(pos)
+        # if len(left_ids) > 0:
+            # left = max(left_ids, key=lambda veh_id: self._get_abs_position(veh_id))
+        # else:
+            # # only vehicles on right half
+            # left = min(right_ids, key=lambda veh_id: self._get_abs_position(veh_id))
+
+        # if len(right_ids) > 0:
+            # right = min(right_ids, key=lambda veh_id: self._get_abs_position(veh_id))
+        # else:
+            # # only vehicles on left half
+            # right = max(left_ids, key=lambda veh_id: self._get_abs_position(veh_id))
+
+        # rl_id = self.k.vehicle.get_rl_ids()[0] #assume single rl agent
+
+        # speed = [max(self.k.vehicle.get_speed(veh_id) / self.k.network.max_speed(), 0.)
+                 # for veh_id in (left, right, rl_id)]
+        # pos = [(self.k.vehicle.get_driving_distance(veh_id, "left", 200) - 200) / 200 for veh_id in (left, right, rl_id)]
 
         return np.array(speed + pos)
 
@@ -138,6 +151,7 @@ class MergePOEnv(Env):
         # penalty of -10 in case of collision
         if self.k.simulation.check_collision():
             reward += -10
+            return reward
 
         # reward for successfull merge
         if self._merge_success():
@@ -164,7 +178,7 @@ class MergePOEnv(Env):
         rl_id = self.k.vehicle.get_rl_ids()[0] #assume single rl agent
         agent_pos = self.k.vehicle.get_x_by_id(rl_id)
 
-        return agent_pos > 240 and agent_pos < 300
+        return agent_pos > 230 and agent_pos < 300
 
     def additional_command(self):
         """See parent class.
@@ -204,13 +218,16 @@ class MergePOEnv(Env):
             a list of all vehicle IDs sorted by position
         """
         if self.env_params.additional_params['sort_vehicles']:
-            return sorted(self.k.vehicle.get_ids(), key=self._get_abs_position)
+            # return sorted(self.k.vehicle.get_ids(), key=self._get_abs_position)
+            return sorted(self.k.vehicle.get_human_ids(), key=self._get_abs_position)
         else:
-            return self.k.vehicle.get_ids()
+            # return self.k.vehicle.get_ids()
+            return self.k.vehicle.get_human_ids()
 
     def _get_abs_position(self, veh_id):
         """Return the absolute position of a vehicle."""
-        return self.absolute_position.get(veh_id, -1001)
+        # return self.absolute_position.get(veh_id, -1001)
+        return self.k.vehicle.get_driving_distance(veh_id, 'left', 200) - 200
 
     def reset(self):
         """See parent class.
