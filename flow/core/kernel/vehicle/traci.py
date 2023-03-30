@@ -4,6 +4,7 @@ import traceback
 from flow.core.kernel.vehicle import KernelVehicle
 import traci.constants as tc
 from traci.exceptions import FatalTraCIError, TraCIException
+from libsumo import TraCIException, INVALID_DOUBLE_VALUE
 import numpy as np
 import collections
 import warnings
@@ -1173,7 +1174,10 @@ class TraCIVehicle(KernelVehicle):
         return self.__sumo_obs.get(veh_id, {}).get(tc.VAR_DISTANCE, error)
 
     def get_driving_distance(self, veh_id, edgeID, position, laneIndex=0):
-        return self.kernel_api.vehicle.getDrivingDistance(veh_id, edgeID, position, laneIndex)
+        try:
+            return self.kernel_api.vehicle.getDrivingDistance(veh_id, edgeID, position, laneIndex)
+        except TraCIException as ex:
+            return INVALID_DOUBLE_VALUE
 
     def get_road_grade(self, veh_id):
         """See parent class."""

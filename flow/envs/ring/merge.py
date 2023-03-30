@@ -10,6 +10,8 @@ from flow.core import rewards
 
 from gym.spaces.box import Box
 
+from libsumo import INVALID_DOUBLE_VALUE
+
 import numpy as np
 import collections
 
@@ -89,8 +91,8 @@ class MergePOEnv(Env):
         return Box(
             low=-1,
             high=1,
-            shape=(2 * self.initial_vehicles.num_vehicles, ),
-            # shape=(2 * 3, ),
+            # shape=(2 * self.initial_vehicles.num_vehicles, ),
+            shape=(2 * 5, ),
             dtype=np.float32)
 
 
@@ -108,39 +110,57 @@ class MergePOEnv(Env):
     def get_state(self, rl_id=None, **kwargs):
         """See class definition."""
 
+        """
+        #old approach
         speed = [max(self.k.vehicle.get_speed(veh_id) / self.k.network.max_speed(), 0.)
                  for veh_id in self.sorted_ids]
-        pos = [(max(self.k.vehicle.get_driving_distance(veh_id, "left", 200) - 213, -200)) / 200
+        pos = [(max(self.k.vehicle.get_driving_distance(veh_id, "left", 200) - 200, -200)) / 200
                 for veh_id in self.sorted_ids]
 
         rl_id = self.k.vehicle.get_rl_ids()[0] #assume single rl agent
         speed.append(max(self.k.vehicle.get_speed(rl_id) / self.k.network.max_speed(), 0.))
-        pos.append(max(self.k.vehicle.get_driving_distance(rl_id, "left", 200) - 217, -200) / 200)
-
-        # print(max(self.k.vehicle.get_driving_distance(rl_id, "left", 200) - 217, -180))
-        # print(np.array(pos)*200)
+        pos.append(max(self.k.vehicle.get_driving_distance(rl_id, "left", 200) - 200, -200) / 200)
+        """
 
         # new approach
-        # left_ids = list(filter(lambda x: (self._get_abs_position(x) <= 0), self.k.vehicle.get_human_ids()))
-        # right_ids = list(filter(lambda x: (self._get_abs_position(x) > 0), self.k.vehicle.get_human_ids()))
+        left_ids = list(filter(lambda x: (self._get_abs_position(x) <= 0), self.sorted_ids))
+        right_ids = list(filter(lambda x: (self._get_abs_position(x) > 0), self.sorted_ids))
 
-        # if len(left_ids) > 0:
-            # left = max(left_ids, key=lambda veh_id: self._get_abs_position(veh_id))
-        # else:
-            # # only vehicles on right half
-            # left = min(right_ids, key=lambda veh_id: self._get_abs_position(veh_id))
+        if len(left_ids) < 2: # not enough vehicles on left half
+            # ids = left_ids + right_ids[-(2-len(left_ids)):] + right_ids[0:2]
+            left_ids = ['placeholder' for i in range(2-len(left_ids))] + left_ids
 
-        # if len(right_ids) > 0:
-            # right = min(right_ids, key=lambda veh_id: self._get_abs_position(veh_id))
-        # else:
-            # # only vehicles on left half
-            # right = max(left_ids, key=lambda veh_id: self._get_abs_position(veh_id))
+        if len(right_ids) < 2: # not enough vehicles in right half
+            # ids = left_ids[-2:] + right_ids + left_ids[:2-len(right_ids)]
+            right_ids = right_ids + ['placeholder' for i in range(2-len(right_ids))]
 
-        # rl_id = self.k.vehicle.get_rl_ids()[0] #assume single rl agent
+        left_ids = left_ids[-2:]
+        right_ids = right_ids[:2]
 
-        # speed = [max(self.k.vehicle.get_speed(veh_id) / self.k.network.max_speed(), 0.)
-                 # for veh_id in (left, right, rl_id)]
-        # pos = [(self.k.vehicle.get_driving_distance(veh_id, "left", 200) - 200) / 200 for veh_id in (left, right, rl_id)]
+        pos = []
+
+        for veh_id in left_ids:
+            veh_pos = self.k.vehicle.get_driving_distance(veh_id, "left", 200)
+            if veh_pos == INVALID_DOUBLE_VALUE:
+                pos.append(-1)
+            else:
+                pos.append((veh_pos - 200)/200)
+
+        for veh_id in right_ids:
+            veh_pos = self.k.vehicle.get_driving_distance(veh_id, "left", 200)
+            if veh_pos == INVALID_DOUBLE_VALUE:
+                pos.append(1)
+            else:
+                pos.append((veh_pos - 200)/200)
+
+        rl_id = self.k.vehicle.get_rl_ids()[0] #assume single rl agent
+
+        pos.append((self.k.vehicle.get_driving_distance(rl_id, "left", 200) - 200) / 200)
+        print(pos)
+
+        speed = [max(self.k.vehicle.get_speed(veh_id) / self.k.network.max_speed(), 0.)
+                 for veh_id in (*left_ids, *right_ids,  rl_id)]
+        print(speed)
 
         return np.array(speed + pos)
 
