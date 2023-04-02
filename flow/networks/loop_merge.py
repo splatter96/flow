@@ -294,7 +294,7 @@ class TwoLoopsOneMergingScenario(Network):
 
         ring_edgelen = pi * r
 
-        left_veh = random.randint(0, num_vehicles-1)
+        left_veh = random.randint(2, num_vehicles-3)
         initial_config.edges_distribution['left'] = left_veh
         initial_config.edges_distribution['center'] = num_vehicles -1  - left_veh
 

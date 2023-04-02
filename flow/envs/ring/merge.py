@@ -17,14 +17,21 @@ import collections
 
 ADDITIONAL_ENV_PARAMS = {
     # maximum acceleration for autonomous vehicles, in m/s^2
-    "max_accel": 4,
+    "max_accel": 8,
     # maximum deceleration for autonomous vehicles, in m/s^2
-    "max_decel": 4,
+    "max_decel": 8,
     # specifies whether vehicles are to be sorted by position during a
     # simulation step. If set to True, the environment parameter
     # self.sorted_ids will return a list of all vehicles sorted in accordance
     # with the environment
-    'sort_vehicles': True
+    'sort_vehicles': True,
+
+    # if this param is true then only a partial observable environment is used
+    # aka only 5 vehicles are in the state space
+    'PO_env': True,
+
+    #position at which the agents needs to be to consider a merge a successs
+    'success_pos': 250
 }
 
 
@@ -88,11 +95,16 @@ class MergePOEnv(Env):
     def observation_space(self):
         """See class definition."""
         self.obs_var_labels = ['Velocity', 'Absolute_pos']
+
+        if self.env_params.additional_params['PO_env']:
+            shape=(2 * 5, )
+        else:
+            shape=(2 * self.initial_vehicles.num_vehicles, )
+
         return Box(
             low=-1,
             high=1,
-            # shape=(2 * self.initial_vehicles.num_vehicles, ),
-            shape=(2 * 5, ),
+            shape=shape,
             dtype=np.float32)
 
 
@@ -110,57 +122,53 @@ class MergePOEnv(Env):
     def get_state(self, rl_id=None, **kwargs):
         """See class definition."""
 
-        """
-        #old approach
-        speed = [max(self.k.vehicle.get_speed(veh_id) / self.k.network.max_speed(), 0.)
-                 for veh_id in self.sorted_ids]
-        pos = [(max(self.k.vehicle.get_driving_distance(veh_id, "left", 200) - 200, -200)) / 200
-                for veh_id in self.sorted_ids]
+        if not self.env_params.additional_params['PO_env']:
+            #old approach
+            speed = [max(self.k.vehicle.get_speed(veh_id) / self.k.network.max_speed(), 0.)
+                     for veh_id in self.sorted_ids]
+            pos = [(max(self.k.vehicle.get_driving_distance(veh_id, "left", 200) - 200, -200)) / 200
+                    for veh_id in self.sorted_ids]
 
-        rl_id = self.k.vehicle.get_rl_ids()[0] #assume single rl agent
-        speed.append(max(self.k.vehicle.get_speed(rl_id) / self.k.network.max_speed(), 0.))
-        pos.append(max(self.k.vehicle.get_driving_distance(rl_id, "left", 200) - 200, -200) / 200)
-        """
+            rl_id = self.k.vehicle.get_rl_ids()[0] #assume single rl agent
+            speed.append(max(self.k.vehicle.get_speed(rl_id) / self.k.network.max_speed(), 0.))
+            pos.append(max(self.k.vehicle.get_driving_distance(rl_id, "left", 200) - 200, -200) / 200)
 
-        # new approach
-        left_ids = list(filter(lambda x: (self._get_abs_position(x) <= 0), self.sorted_ids))
-        right_ids = list(filter(lambda x: (self._get_abs_position(x) > 0), self.sorted_ids))
+        else:
+            # new approach
+            left_ids = list(filter(lambda x: (self._get_abs_position(x) <= 0), self.sorted_ids))
+            right_ids = list(filter(lambda x: (self._get_abs_position(x) > 0), self.sorted_ids))
 
-        if len(left_ids) < 2: # not enough vehicles on left half
-            # ids = left_ids + right_ids[-(2-len(left_ids)):] + right_ids[0:2]
-            left_ids = ['placeholder' for i in range(2-len(left_ids))] + left_ids
+            if len(left_ids) < 2: # not enough vehicles on left half
+                left_ids = ['placeholder' for i in range(2-len(left_ids))] + left_ids
 
-        if len(right_ids) < 2: # not enough vehicles in right half
-            # ids = left_ids[-2:] + right_ids + left_ids[:2-len(right_ids)]
-            right_ids = right_ids + ['placeholder' for i in range(2-len(right_ids))]
+            if len(right_ids) < 2: # not enough vehicles in right half
+                right_ids = right_ids + ['placeholder' for i in range(2-len(right_ids))]
 
-        left_ids = left_ids[-2:]
-        right_ids = right_ids[:2]
+            left_ids = left_ids[-2:]
+            right_ids = right_ids[:2]
 
-        pos = []
+            pos = []
 
-        for veh_id in left_ids:
-            veh_pos = self.k.vehicle.get_driving_distance(veh_id, "left", 200)
-            if veh_pos == INVALID_DOUBLE_VALUE:
-                pos.append(-1)
-            else:
-                pos.append((veh_pos - 200)/200)
+            for veh_id in left_ids:
+                veh_pos = self.k.vehicle.get_driving_distance(veh_id, "left", 200)
+                if veh_pos == INVALID_DOUBLE_VALUE:
+                    pos.append(-1)
+                else:
+                    pos.append((veh_pos - 200)/200)
 
-        for veh_id in right_ids:
-            veh_pos = self.k.vehicle.get_driving_distance(veh_id, "left", 200)
-            if veh_pos == INVALID_DOUBLE_VALUE:
-                pos.append(1)
-            else:
-                pos.append((veh_pos - 200)/200)
+            for veh_id in right_ids:
+                veh_pos = self.k.vehicle.get_driving_distance(veh_id, "left", 200)
+                if veh_pos == INVALID_DOUBLE_VALUE:
+                    pos.append(1)
+                else:
+                    pos.append((veh_pos - 200)/200)
 
-        rl_id = self.k.vehicle.get_rl_ids()[0] #assume single rl agent
+            rl_id = self.k.vehicle.get_rl_ids()[0] #assume single rl agent
 
-        pos.append((self.k.vehicle.get_driving_distance(rl_id, "left", 200) - 200) / 200)
-        print(pos)
+            pos.append((self.k.vehicle.get_driving_distance(rl_id, "left", 200) - 200) / 200)
 
-        speed = [max(self.k.vehicle.get_speed(veh_id) / self.k.network.max_speed(), 0.)
-                 for veh_id in (*left_ids, *right_ids,  rl_id)]
-        print(speed)
+            speed = [max(self.k.vehicle.get_speed(veh_id) / self.k.network.max_speed(), 0.)
+                     for veh_id in (*left_ids, *right_ids,  rl_id)]
 
         return np.array(speed + pos)
 
@@ -198,7 +206,8 @@ class MergePOEnv(Env):
         rl_id = self.k.vehicle.get_rl_ids()[0] #assume single rl agent
         agent_pos = self.k.vehicle.get_x_by_id(rl_id)
 
-        return agent_pos > 230 and agent_pos < 300
+        success_pos = self.env_params.additional_params['success_pos']
+        return agent_pos > success_pos and agent_pos < 300
 
     def additional_command(self):
         """See parent class.
