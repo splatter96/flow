@@ -20,6 +20,8 @@ ADDITIONAL_NET_PARAMS = {
     "speed_limit": 50,
     # resolution of the curved portions
     "resolution": 40,
+    # startposition of the agent in amount of the straight lane
+    "agent_start_pos": 0.9
 }
 
 
@@ -222,7 +224,8 @@ class TwoLoopsOneMergingScenario(Network):
     def specify_routes(self, net_params):
         """See parent class."""
         rts = {
-            "top": ["top", "left", "center", "top"],
+            # "top": ["top", "left", "center", "top"],
+            "top": ["top", "left", "bottom", "right"],
             "bottom": ["bottom", "right", "top", "left", "bottom"],
             "right": ["right", "top", "left", "bottom"],
             # "left": ["left", "bottom", "right", "top"],
@@ -302,7 +305,10 @@ class TwoLoopsOneMergingScenario(Network):
                 initial_config, num_vehicles-1)
 
         # add our rl agent to our network on the right onramp
-        startpositions.append(('right', ring_edgelen / 1.5))
+        agent_start_pos = self.net_params.additional_params["agent_start_pos"]
+        lane_length = net_params.additional_params["lane_length"]
+        # startpositions.append(('right', ring_edgelen * agent_start_pos))
+        startpositions.append(('top', lane_length * agent_start_pos))
         startlanes.append(0)
 
         return startpositions, startlanes

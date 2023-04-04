@@ -1,7 +1,10 @@
 from flow.utils.registry import make_create_env
 import time
+from copy import deepcopy
 
-from flow.controllers import IDMController, ContinuousRouter, SimCarFollowingController, RLController
+from ray import tune
+
+from flow.controllers import IDMController, ContinuousRouter, SimCarFollowingController, RLController, IDMController
 from flow.core.params import SumoParams, EnvParams, InitialConfig, NetParams
 from flow.core.params import VehicleParams, SumoCarFollowingParams
 from flow.envs.ring.merge import MergePOEnv, ADDITIONAL_ENV_PARAMS
@@ -17,9 +20,10 @@ from ray.tune.registry import register_env
 # META CONFIG
 #####
 TRAIN = False
-EVAL = False
+EVAL = True
 USE_GPU = False
-CHECKPOINT_FREQ = 10
+LOAD_FAIL = -1
+CHECKPOINT_FREQ = 1
 
 # time horizon of a single rollout
 HORIZON = 1000
@@ -34,15 +38,17 @@ class Experiment:
         vehicles = VehicleParams()
         vehicles.add(
             veh_id="idm-inner",
+            # acceleration_controller=(IDMController, {}),
             acceleration_controller=(SimCarFollowingController, {}),
             routing_controller=(ContinuousRouter, {}),
             car_following_params=SumoCarFollowingParams(
                 speed_mode="aggressive",
-                min_gap=0.2,
+                min_gap=0.01,
                 max_speed=10,
+                tau=0.1,
                 ),
-            # num_vehicles=14)
-            num_vehicles=10)
+            # num_vehicles=12)
+            num_vehicles=14)
 
         # add our rl agent car
         # this needs to be added after the idm cars to spawn on the outer ring
@@ -74,8 +80,8 @@ class Experiment:
             sim=SumoParams(
                 sim_step=0.1,
                 render= not TRAIN,
-                # render= False,
                 restart_instance= not TRAIN,
+                # render= False,
                 # restart_instance= False,
             ),
 
@@ -104,6 +110,7 @@ class Experiment:
                 edges_distribution={"top": 0, "bottom": 0, "left": 5, "center": 5, "right": 0},
                 min_gap=0.5, # add a minimum gap of 0.5m between the spawning vehicles so no erros occur
                 perturbation=20,
+                # shuffle = False,
                 shuffle = True,
             ),
         )
@@ -116,8 +123,9 @@ class Experiment:
     def run(self, num_runs, rl_actions=None, convert_to_csv=False):
 
         if TRAIN:
+            # ray.init(num_cpus=3 + 1, object_store_memory=200 * 1024 * 1024)
             ray.init(address='auto')
-            config = PPOConfig().environment(env="myMergeEnv").rollouts(num_rollout_workers=7).resources(num_cpus_per_worker=1)
+            config = PPOConfig().environment(env="myMergeEnv").rollouts(num_rollout_workers=1).resources(num_cpus_per_worker=1)
             # config.exploration(explore=True, exploration_config={
                                                 # "type": "EpsilonGreedy",
                                                 # "initial_epsilon": 1.0,
@@ -131,15 +139,24 @@ class Experiment:
             if USE_GPU:
                 config.resources(num_gpus=1)
 
-            algo = config.build(use_copy=False)
 
-            for i in range(num_runs):
-                print(algo.train())
+            tune.run("PPO",
+                     config=config.to_dict(),
+                     checkpoint_freq = 1,
+                     checkpoint_at_end = True,
+                     # stop=
+                     )
 
-                if i % CHECKPOINT_FREQ == 0:
-                    algo.save()
 
-            algo.save()
+            # algo = config.build(use_copy=False)
+
+            # for i in range(num_runs):
+                # print(algo.train())
+
+                # if i % CHECKPOINT_FREQ == 0:
+                    # algo.save()
+
+            # algo.save()
 
         elif EVAL:
             config = PPOConfig().environment(env="myMergeEnv").rollouts(num_rollout_workers=0)
@@ -149,30 +166,64 @@ class Experiment:
             config.model.update({'fcnet_hiddens': [32, 32, 32]})
             config.horizon = HORIZON
 
-            alg = config.build(use_copy=False)
+            # alg = config.build(use_copy=False)
             # alg.restore("/home/paul/checkpoint_000400")
-            alg.restore("/home/paul/checkpoint_000800")
+            # alg.restore("/home/paul/checkpoint_000731")
+            # alg.restore("/home/paul/checkpoint_000800")
 
-            # pol = Policy.from_checkpoint("/home/paul/checkpoint_000171/")['default_policy']
+            # pol = Policy.from_checkpoint("/home/paul/checkpoint_000731/")['default_policy']
+            # pol = Policy.from_checkpoint("/home/paul/checkpoint_000800/")['default_policy']
+            pol = Policy.from_checkpoint("/home/paul/checkpoint_000780/")['default_policy']
 
             num_steps = self.env.env_params.horizon
             print(f"{num_steps=}")
 
+            success = 0
+            failure = 0
+
+            if LOAD_FAIL > -1:
+                import pickle
+                f = open('failed_states.pkl', 'rb')
+                states = pickle.load(f)
+
+            failed_states = []
             for i in range(num_runs):
                 ret = 0
+
+                if LOAD_FAIL > -1:
+                    self.env.initial_state = states[LOAD_FAIL]
+                    print('setting initial state')
+                    print( states[LOAD_FAIL])
+
                 state = self.env.reset()
 
                 for j in range(num_steps):
-                    action = alg.compute_single_action(state)
+                    # action = alg.compute_single_action(state)
+                    action = pol.compute_single_action(state)[0]
+                    # print(action)
                     state, reward, done, _ = self.env.step(action)
                     ret += reward
 
                     if done:
+                        if reward < 0:
+                            failure += 1
+                            print("Failed with initial state")
+                            print(self.env.initial_state)
+                            failed_states.append(deepcopy(self.env.initial_state))
+                        elif reward > 10:
+                            success += 1
                         break
 
                 print(f"Run took {j} steps")
                 print("Round {0}, return: {1}".format(i, ret))
 
+            print(failed_states)
+
+            # import pickle
+            # with open('failed_states.pkl', 'wb') as f:
+                # pickle.dump(failed_states, f)
+
+            print(f"Sucessfull merges {success}. Failed merges {failure}")
             self.env.terminate()
 
         else:
@@ -198,5 +249,5 @@ class Experiment:
 
 if __name__ == "__main__":
     exp = Experiment()
-    exp.run(num_runs=10)
+    exp.run(num_runs=100)
 

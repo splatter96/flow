@@ -31,7 +31,7 @@ ADDITIONAL_ENV_PARAMS = {
     'PO_env': True,
 
     #position at which the agents needs to be to consider a merge a successs
-    'success_pos': 250
+    'success_pos': 230
 }
 
 

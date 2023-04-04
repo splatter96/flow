@@ -94,7 +94,22 @@ flow_params = dict(
     # network-related parameters (see flow.core.params.NetParams and the
     # network's documentation or ADDITIONAL_NET_PARAMS component)
     net=NetParams(
-            additional_params=ADDITIONAL_NET_PARAMS.copy(),
+            additional_params= {
+                # radius of the loops
+                "ring_radius": 50,
+                # length of the straight edges connected the outer loop to the inner loop
+                "lane_length": 50,
+                # number of lanes in the inner loop
+                "inner_lanes": 1,
+                # number of lanes in the outer loop
+                "outer_lanes": 1,
+                # max speed limit in the network
+                "speed_limit": 50,
+                # resolution of the curved portions
+                "resolution": 40,
+                # startposition of the agent in amount of the straight lane
+                "agent_start_pos": 0.9
+            },
          ),
 
     # vehicles to be placed in the network at the start of a rollout (see
