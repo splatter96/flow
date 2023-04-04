@@ -71,7 +71,24 @@ flow_params = dict(
     # environment related parameters (see flow.core.params.EnvParams)
     env=EnvParams(
         horizon=HORIZON,
-        additional_params=ADDITIONAL_ENV_PARAMS
+        additional_params= {
+            # maximum acceleration for autonomous vehicles, in m/s^2
+            "max_accel": 8,
+            # maximum deceleration for autonomous vehicles, in m/s^2
+            "max_decel": 8,
+            # specifies whether vehicles are to be sorted by position during a
+            # simulation step. If set to True, the environment parameter
+            # self.sorted_ids will return a list of all vehicles sorted in accordance
+            # with the environment
+            'sort_vehicles': True,
+
+            # if this param is true then only a partial observable environment is used
+            # aka only 5 vehicles are in the state space
+            'PO_env': True,
+
+            #position at which the agents needs to be to consider a merge a successs
+            'success_pos': 250
+        }
     ),
 
     # network-related parameters (see flow.core.params.NetParams and the

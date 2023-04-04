@@ -117,6 +117,7 @@ def train_rllib(submodule, flags):
 
     ray.init(address='auto')
     config.environment(gym_name)
+    config.framework("tf2")
 
     tune.run("PPO",
              config = config.to_dict(),
