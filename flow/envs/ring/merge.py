@@ -165,7 +165,7 @@ class MergePOEnv(Env):
 
             rl_id = self.k.vehicle.get_rl_ids()[0] #assume single rl agent
 
-            pos.append((self.k.vehicle.get_driving_distance(rl_id, "left", 200) - 200) / 200)
+            pos.append(max(self.k.vehicle.get_driving_distance(rl_id, "left", 200) - 200, -200) / 200)
 
             speed = [max(self.k.vehicle.get_speed(veh_id) / self.k.network.max_speed(), 0.)
                      for veh_id in (*left_ids, *right_ids,  rl_id)]

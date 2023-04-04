@@ -39,7 +39,7 @@ def parse_args(args):
 
     # optional input parameters
     parser.add_argument(
-        '--num_steps', type=int, default=5000,
+        '--num_steps', type=int, default=1000,
         help='How many total steps to perform learning over')
     parser.add_argument(
         '--rollout_size', type=int, default=1000,
@@ -59,19 +59,13 @@ def get_trial_name(exp_tag):
         return(date_time + "_" + exp_tag + "_" + trial.trial_id)
     return get_trial_dir
 
-def setup_exps_rllib(flow_params,
-                     n_cpus,
-                     n_rollouts):
+def setup_exps_rllib(submodule):
     """Return the relevant components of an RLlib experiment.
 
     Parameters
     ----------
-    flow_params : dict
-        flow-specific parameters (see flow/utils/registry.py)
-    n_cpus : int
-        number of CPUs to run the experiment over
-    n_rollouts : int
-        number of rollouts per training iteration
+    submodule : module
+        the loaded config as an python module
     Returns
     -------
     str
@@ -84,10 +78,15 @@ def setup_exps_rllib(flow_params,
 
     config = PPOConfig()
 
+    flow_params = submodule.flow_params
+    n_cpus = submodule.N_CPUS
+    n_rollouts = submodule.N_ROLLOUTS
+    gamma = submodule.GAMMA
+
     # TODO make the training parameters setable via experiment config parameters
     horizon = flow_params['env'].horizon
     batch_size = horizon * n_rollouts
-    config.training(gamma=0.999, train_batch_size=batch_size, lambda_=0.97, use_gae=True, kl_target=0.02, num_sgd_iter=10)
+    config.training(gamma=gamma, train_batch_size=batch_size, lambda_=0.97, use_gae=True, kl_target=0.02, num_sgd_iter=10)
     config.model.update({'fcnet_hiddens': [32, 32, 32]})
     config.horizon = horizon
 
@@ -109,11 +108,7 @@ def train_rllib(submodule, flags):
     import ray
     from ray.tune import run_experiments
 
-    flow_params = submodule.flow_params
-    n_cpus = submodule.N_CPUS
-    n_rollouts = submodule.N_ROLLOUTS
-
-    gym_name, config = setup_exps_rllib(flow_params, n_cpus, n_rollouts)
+    gym_name, config = setup_exps_rllib(submodule)
 
     ray.init(address='auto')
     config.environment(gym_name)
@@ -121,12 +116,12 @@ def train_rllib(submodule, flags):
 
     tune.run("PPO",
              config = config.to_dict(),
-             checkpoint_freq = 2,
+             checkpoint_freq = 10,
              checkpoint_at_end = True,
              stop = {
                  "training_iteration": flags.num_steps,
              },
-             trial_dirname_creator=get_trial_name(flow_params['exp_tag'])
+             trial_dirname_creator=get_trial_name(submodule.flow_params['exp_tag'])
          )
 
 def main(args):

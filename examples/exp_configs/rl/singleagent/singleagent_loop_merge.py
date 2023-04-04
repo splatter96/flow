@@ -13,9 +13,11 @@ from flow.networks.loop_merge import TwoLoopsOneMergingScenario, ADDITIONAL_NET_
 N_CPUS = 7
 
 # time horizon of a single rollout
-HORIZON = 1000
+HORIZON = 500
 # number of rollouts per training iteration
 N_ROLLOUTS = 20
+
+GAMMA = 0.9999
 
 # We place one autonomous vehicle and 22 human-driven vehicles in the network
 vehicles = VehicleParams()
@@ -26,11 +28,12 @@ vehicles.add(
     routing_controller=(ContinuousRouter, {}),
     car_following_params=SumoCarFollowingParams(
         speed_mode="aggressive",
-        min_gap=0.2,
+        min_gap=0.01,
+        #min_gap=0.2,
         max_speed=10,
-        # tau=0.1,
+        tau=0.1,
         ),
-    num_vehicles=10)
+    num_vehicles=14)
 
 # add our rl agent car
 # this needs to be added after the idm cars to spawn on the outer ring
@@ -48,7 +51,7 @@ vehicles.add(
 
 flow_params = dict(
     # name of the experiment
-    exp_tag="merge_ring",
+    exp_tag="complete_obs_10_veh_wide_bigger_gamma_smaller_succ_pos",
 
     # name of the flow environment the experiment is running on
     env_name=MergePOEnv,
@@ -87,7 +90,7 @@ flow_params = dict(
             'PO_env': True,
 
             #position at which the agents needs to be to consider a merge a successs
-            'success_pos': 250
+            'success_pos': 230
         }
     ),
 
