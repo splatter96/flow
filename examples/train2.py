@@ -17,10 +17,11 @@ from flow.utils.rllib import FlowParamsEncoder
 from flow.utils.registry import make_create_env
 
 import ray
-from ray.rllib.algorithms.ppo import PPOConfig
 from ray import tune
 from ray.tune import Callback
 from ray.tune.registry import register_env
+from ray.rllib.algorithms.ppo import PPOConfig
+from ray.rllib.policy.policy import Policy
 
 
 class CopyCallback(Callback):
@@ -49,6 +50,15 @@ def parse_args(args):
         'exp_config', type=str,
         help='Name of the experiment configuration file, as located in '
              'exp_configs/rl/singleagent or exp_configs/rl/multiagent.')
+
+    # optional parameters
+    parser.add_argument(
+        '--eval', type=str, default=None,
+        help='Directory for the experiment output containing the policy to evaluate')
+
+    parser.add_argument(
+        '--num_runs', type=int, default=10,
+        help='Number of episodes to perform for evaluation')
 
     return parser.parse_known_args(args)[0]
 
@@ -122,20 +132,71 @@ def train_rllib(submodule, flags):
              callbacks=[start_callback]
          )
 
+def setup_eval_env(params):
+
+    # override the rendering relevant parameters so we can see something during eval
+    params['sim'].render = True
+    params['sim'].restart_instance = True
+
+    create_env, gym_name = make_create_env(params=params)
+    env = create_env()
+
+    return env
+
+def eval_policy(policy, env, num_runs):
+    num_steps = env.env_params.horizon
+
+    for i in range(num_runs):
+        ret = 0
+
+        state = env.reset()
+        for j in range(num_steps):
+            action = policy.compute_single_action(state)[0]
+            state, reward, done, _ = env.step(action)
+            ret += reward
+
+            if done:
+                break
+
+        print("Round {0}, return: {1} steps: {2}".format(i, ret, j))
+
 def main(args):
     """Perform the training operations."""
     flags = parse_args(args)
 
-    # Import relevant information from the exp_config script.
-    module = __import__("exp_configs.rl.singleagent", fromlist=[flags.exp_config])
+    if flags.eval is None: # training
+        # Import relevant information from the exp_config script.
+        module = __import__("exp_configs.rl.singleagent", fromlist=[flags.exp_config])
 
-    if hasattr(module, flags.exp_config):
-        submodule = getattr(module, flags.exp_config)
-    else:
-        raise ValueError("Unable to find experiment config.")
+        if hasattr(module, flags.exp_config):
+            submodule = getattr(module, flags.exp_config)
+        else:
+            raise ValueError("Unable to find experiment config.")
 
-    # Perform the training operation.
-    train_rllib(submodule, flags)
+        # Perform the training operation.
+        train_rllib(submodule, flags)
+
+    else: # evaluation
+        eval_folder = flags.eval
+        sys.path.append(os.path.dirname(os.path.expanduser(eval_folder)))
+
+        try:
+            import flow_params
+        except ModuleNotFoundError:
+            print("Can't load config file. Is the path correctly specified? (Add trailing slash?)")
+            exit(1)
+
+        env = setup_eval_env(flow_params.flow_params)
+
+        # get the newest checkpoint
+        folder_content = os.listdir(eval_folder)
+        folder_content = list(filter(lambda x: 'checkpoint' in x, folder_content))
+        checkpoint = max(folder_content)
+
+        pol = Policy.from_checkpoint(f"{eval_folder}/{checkpoint}")['default_policy']
+
+        # start the evaluation process
+        eval_policy(pol, env, flags.num_runs)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
