@@ -31,7 +31,12 @@ ADDITIONAL_ENV_PARAMS = {
     'PO_env': True,
 
     #position at which the agents needs to be to consider a merge a successs
-    'success_pos': 230
+    'success_pos': 230,
+
+    # rewards for different actions
+    'reward_crash': -10,
+    'reward_success': 10,
+    'reward_distance': -0.05,
 }
 
 
@@ -176,20 +181,24 @@ class MergePOEnv(Env):
         """See class definition."""
         reward = 0
 
+        reward_crash = self.env_params.additional_params['reward_crash']
+        reward_success = self.env_params.additional_params['reward_success']
+        reward_distance = self.env_params.additional_params['reward_distance']
+
         # penalty of -10 in case of collision
         if self.k.simulation.check_collision():
-            reward += -10
+            reward += reward_crash
             return reward
 
         # reward for successfull merge
         if self._merge_success():
-            reward += 10
+            reward += reward_success
 
         rl_id = self.k.vehicle.get_rl_ids()[0] #assume single rl agent
         dist = self.k.vehicle.get_distance(rl_id)
 
         if dist > 0: #avaid error case
-            reward += 0.05 * (dist - self.prev_rl_dist)
+            reward += reward_distance * (dist - self.prev_rl_dist)
             self.prev_rl_dist = dist
 
         return reward

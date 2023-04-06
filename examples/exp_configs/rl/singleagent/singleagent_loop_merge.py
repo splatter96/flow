@@ -90,7 +90,12 @@ flow_params = dict(
             'PO_env': True,
 
             #position at which the agents needs to be to consider a merge a successs
-            'success_pos': 230
+            'success_pos': 230,
+
+            # rewards for different actions
+            'reward_crash': -10,
+            'reward_success': 10,
+            'reward_distance': -0.05,
         }
     ),
 
