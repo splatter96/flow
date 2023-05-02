@@ -10,19 +10,23 @@ import json
 import sys
 import shutil
 import os
+import pickle
 
 from datetime import datetime
+from copy import deepcopy
 
 from flow.utils.rllib import FlowParamsEncoder
 from flow.utils.registry import make_create_env
 
 import ray
-from ray import tune
+from ray import air, tune
 from ray.tune import Callback
 from ray.tune.registry import register_env
 from ray.rllib.algorithms.ppo import PPOConfig
 from ray.rllib.policy.policy import Policy
 
+from stable_baselines3 import PPO
+from stable_baselines3.common.callbacks import CheckpointCallback, BaseCallback
 
 class CopyCallback(Callback):
     def __init__(self, config_file):
@@ -31,6 +35,19 @@ class CopyCallback(Callback):
 
     def on_trial_start(self, iteration, trials, trial, **info):
         shutil.copy(self.config_file, f"{trial.logdir}/flow_params.py")
+
+
+class FlowParamsSaverCallback(BaseCallback):
+    def __init__(self, config_file):
+        super().__init__()
+        self.config_file = config_file
+
+    def _on_training_start(self):
+        shutil.copy(self.config_file, f"{self.model.logger.dir}/flow_params.py")
+
+    def _on_step(self):
+        pass
+
 
 def parse_args(args):
     """Parse training options user can specify in command line.
@@ -57,9 +74,20 @@ def parse_args(args):
         help='Directory for the experiment output containing the policy to evaluate')
 
     parser.add_argument(
-        '--num_runs', type=int, default=10,
+        '--num_runs', type=int, default=50,
         help='Number of episodes to perform for evaluation')
 
+    parser.add_argument(
+        '--load_state', type=int, default=-1,
+        help='Index of initial state to load')
+
+    parser.add_argument( '--render', action='store_true',
+        help='Wether to render the the output during evaluation or not')
+    parser.add_argument( '--no-render', dest='render', action='store_false',
+        help='Wether to render the the output during evaluation or not')
+    parser.set_defaults(render=True)
+
+    return parser.parse_known_args(args)[0]
     return parser.parse_known_args(args)[0]
 
 def get_trial_name(exp_tag):
@@ -108,12 +136,56 @@ def setup_exps_rllib(submodule):
 
     # Register as rllib env
     register_env(gym_name, create_env)
-    return config
+    return config, gym_name
+
+
+def setup_exps_tb3(submodule):
+    flow_params = submodule.flow_params
+    n_rollouts = submodule.N_ROLLOUTS
+    gamma = submodule.GAMMA
+
+    horizon = flow_params['env'].horizon
+    batch_size = horizon * n_rollouts
+
+    config = {}
+
+    config["horizon"] = horizon
+    config["batch_size"] = batch_size
+    config["gamma"] = gamma
+    config["exp_tag"] = flow_params["exp_tag"]
+
+    create_env, _ = make_create_env(params=flow_params)
+
+    env = create_env()
+    return env, config
+
+def train_tb3(submodule, flags):
+    env, config = setup_exps_tb3(submodule)
+
+    # Save a checkpoint every 1000 steps
+    checkpoint_callback = CheckpointCallback(
+      save_freq=10000,
+      save_path=f"~/tb3_results/checkpoints/{config['exp_tag']}",
+      name_prefix="rl_model",
+      save_replay_buffer=True,
+      save_vecnormalize=True,
+    )
+
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    params_saver_callback = FlowParamsSaverCallback(f"{dir_path}/exp_configs/rl/singleagent/{flags.exp_config}.py")
+
+    model = PPO("MlpPolicy", env, tensorboard_log="~/tb3_results/", verbose=1)
+    model.batch_size = config["batch_size"]
+    model.gamma = config["gamma"]
+    model.horizon = config["horizon"]
+    model.target_kl = 0.02
+    model.policy_kwargs = dict(net_arch=dict(pi=[32, 32], vf=[32, 32]))
+    model.learn(total_timesteps=10_000_000, progress_bar=True, tb_log_name=config["exp_tag"], log_interval=1, callback=[checkpoint_callback, params_saver_callback])
 
 def train_rllib(submodule, flags):
     """Train policies using the PPO algorithm in RLlib."""
 
-    config = setup_exps_rllib(submodule)
+    config, gym_name  = setup_exps_rllib(submodule)
 
     ray.init(address='auto')
     config.framework("tf")
@@ -132,33 +204,74 @@ def train_rllib(submodule, flags):
              callbacks=[start_callback]
          )
 
-def setup_eval_env(params):
 
-    # override the rendering relevant parameters so we can see something during eval
-    params['sim'].render = True
-    params['sim'].restart_instance = True
+def setup_eval_env(params, render):
+    # override the rendering relevant render parameters in case the
+    # use specified to render the output
+    params['sim'].render = render
+    params['sim'].restart_instance = render
 
     create_env, gym_name = make_create_env(params=params)
+    register_env("myMergeEnv", create_env)
     env = create_env()
 
     return env
 
-def eval_policy(policy, env, num_runs):
+def eval_policy(env, num_runs, checkpoint, load_state):
     num_steps = env.env_params.horizon
+
+    config = PPOConfig()
+    config.environment(env="myMergeEnv")
+    config.rollouts(num_rollout_workers=0)
+    config.model.update({'fcnet_hiddens': [32, 32, 32]})
+    config.explore = False
+    config.framework("tf")
+
+    alg = config.build(use_copy=False)
+    alg.restore(checkpoint)
+
+    success = 0
+    failed = 0
+    failed_states = []
+
+    if load_state > -1:
+        with open('failed_states.pkl', 'rb') as f:
+            failed_states = pickle.load(f)
+            num_runs = len(failed_states)
 
     for i in range(num_runs):
         ret = 0
 
+        if load_state > -1:
+            print(f"loading state {failed_states[i]}")
+            env.set_initial_state(deepcopy(failed_states[i]))
+
         state = env.reset()
+
         for j in range(num_steps):
-            action = policy.compute_single_action(state)[0]
+            action = alg.compute_single_action(state)
             state, reward, done, _ = env.step(action)
             ret += reward
 
+            # print(state)
+
             if done:
+                if reward < 0:
+                    failed += 1
+                    failed_states.append(deepcopy(env.initial_state))
+                    print(f"failed with {env.initial_state}")
+                elif reward > 10:
+                    success += 1
                 break
 
         print("Round {0}, return: {1} steps: {2}".format(i, ret, j))
+
+    print(f"Success {success} failed {failed}")
+    print(f"{len(failed_states)} failed initial states")
+
+    # with open('failed_states.pkl', 'wb') as f:
+        # pickle.dump(failed_states, f)
+
 
 def main(args):
     """Perform the training operations."""
@@ -174,7 +287,8 @@ def main(args):
             raise ValueError("Unable to find experiment config.")
 
         # Perform the training operation.
-        train_rllib(submodule, flags)
+        # train_rllib(submodule, flags)
+        train_tb3(submodule, flags)
 
     else: # evaluation
         eval_folder = flags.eval
@@ -186,17 +300,20 @@ def main(args):
             print("Can't load config file. Is the path correctly specified? (Add trailing slash?)")
             exit(1)
 
-        env = setup_eval_env(flow_params.flow_params)
+        env = setup_eval_env(flow_params.flow_params, flags.render)
 
         # get the newest checkpoint
         folder_content = os.listdir(eval_folder)
         folder_content = list(filter(lambda x: 'checkpoint' in x, folder_content))
-        checkpoint = max(folder_content)
+        # checkpoint = max(folder_content)
+        # checkpoint = "checkpoint_002020"
+        checkpoint = "checkpoint_000400"
+        print(f"Loading checkpoint {checkpoint}")
 
-        pol = Policy.from_checkpoint(f"{eval_folder}/{checkpoint}")['default_policy']
+        # pol = Policy.from_checkpoint(f"{eval_folder}/{checkpoint}")['default_policy']
 
         # start the evaluation process
-        eval_policy(pol, env, flags.num_runs)
+        eval_policy(env, flags.num_runs, f"{eval_folder}/{checkpoint}", flags.load_state)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
