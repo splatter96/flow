@@ -69,10 +69,10 @@ class MergePOEnv(Env):
     """
 
     def __init__(self, env_params, sim_params, network, simulator='traci'):
-        for p in ADDITIONAL_ENV_PARAMS.keys():
-            if p not in env_params.additional_params:
-                raise KeyError(
-                    'Environment parameter "{}" not supplied'.format(p))
+        # for p in ADDITIONAL_ENV_PARAMS.keys():
+            # if p not in env_params.additional_params:
+                # raise KeyError(
+                    # 'Environment parameter "{}" not supplied'.format(p))
 
 
         # names of the rl vehicles controlled at any step
@@ -87,14 +87,21 @@ class MergePOEnv(Env):
 
         super().__init__(env_params, sim_params, network, simulator)
 
-    @property
-    def action_space(self):
-        """See class definition."""
-        return Box(
+        self.a_space =  Box(
             low=-abs(self.env_params.additional_params["max_decel"]),
             high=self.env_params.additional_params["max_accel"],
             shape=(1, ),
             dtype=np.float32)
+
+    @property
+    def action_space(self):
+        """See class definition."""
+        return self.a_space
+        # return Box(
+            # low=-abs(self.env_params.additional_params["max_decel"]),
+            # high=self.env_params.additional_params["max_accel"],
+            # shape=(1, ),
+            # dtype=np.float32)
 
     @property
     def observation_space(self):
@@ -175,15 +182,17 @@ class MergePOEnv(Env):
             speed = [max(self.k.vehicle.get_speed(veh_id) / self.k.network.max_speed(), 0.)
                      for veh_id in (*left_ids, *right_ids,  rl_id)]
 
+        # print(pos)
+
         return np.array(speed + pos)
 
     def compute_reward(self, rl_actions, **kwargs):
         """See class definition."""
         reward = 0
 
-        reward_crash = self.env_params.additional_params['reward_crash']
-        reward_success = self.env_params.additional_params['reward_success']
-        reward_distance = self.env_params.additional_params['reward_distance']
+        reward_crash = self.env_params.additional_params.get('reward_crash', -10)
+        reward_success = self.env_params.additional_params.get('reward_success', 10)
+        reward_distance = self.env_params.additional_params.get('reward_distance', 0.05)
 
         # penalty of -10 in case of collision
         if self.k.simulation.check_collision():
