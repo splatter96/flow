@@ -180,7 +180,7 @@ def train_tb3(submodule, flags):
     # Save a checkpoint every 1000 steps
     checkpoint_callback = CheckpointCallback(
       save_freq=10000,
-      save_path=f"~/tb3_results/checkpoints/{config['exp_tag']}",
+      save_path=os.path.expanduser(f"~/tb3_results/checkpoints/{config['exp_tag']}"),
       name_prefix="rl_model",
       save_replay_buffer=True,
       save_vecnormalize=True,
@@ -192,7 +192,7 @@ def train_tb3(submodule, flags):
     dir_path = os.path.dirname(os.path.realpath(__file__))
     params_saver_callback = FlowParamsSaverCallback(f"{dir_path}/exp_configs/rl/singleagent/{flags.exp_config}.py")
 
-    model = PPO("MlpPolicy", vec_env, tensorboard_log="~/tb3_results/", verbose=1)
+    model = PPO("MlpPolicy", vec_env, tensorboard_log=os.path.expanduser("~/tb3_results/"), verbose=1)
     model.batch_size = config["batch_size"]
     model.gamma = config["gamma"]
     model.horizon = config["horizon"]
