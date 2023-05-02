@@ -27,6 +27,8 @@ from ray.rllib.policy.policy import Policy
 
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback, BaseCallback
+from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 
 class CopyCallback(Callback):
     def __init__(self, config_file):
@@ -138,6 +140,20 @@ def setup_exps_rllib(submodule):
     register_env(gym_name, create_env)
     return config, gym_name
 
+def make_env(create_env):
+    """
+    Utility function for multiprocessed env.
+
+    :param env_id: the environment ID
+    :param num_env: the number of environments you wish to have in subprocesses
+    :param seed: the inital seed for RNG
+    :param rank: index of the subprocess
+    """
+    def _init():
+        env = create_env()
+        return env
+
+    return _init
 
 def setup_exps_tb3(submodule):
     flow_params = submodule.flow_params
@@ -156,11 +172,10 @@ def setup_exps_tb3(submodule):
 
     create_env, _ = make_create_env(params=flow_params)
 
-    env = create_env()
-    return env, config
+    return create_env, config
 
 def train_tb3(submodule, flags):
-    env, config = setup_exps_tb3(submodule)
+    create_env, config = setup_exps_tb3(submodule)
 
     # Save a checkpoint every 1000 steps
     checkpoint_callback = CheckpointCallback(
@@ -171,10 +186,13 @@ def train_tb3(submodule, flags):
       save_vecnormalize=True,
     )
 
+    # vec_env = SubprocVecEnv([make_env(create_env) for i in range(8)])
+    vec_env = create_env()
+
     dir_path = os.path.dirname(os.path.realpath(__file__))
     params_saver_callback = FlowParamsSaverCallback(f"{dir_path}/exp_configs/rl/singleagent/{flags.exp_config}.py")
 
-    model = PPO("MlpPolicy", env, tensorboard_log="~/tb3_results/", verbose=1)
+    model = PPO("MlpPolicy", vec_env, tensorboard_log="~/tb3_results/", verbose=1)
     model.batch_size = config["batch_size"]
     model.gamma = config["gamma"]
     model.horizon = config["horizon"]
