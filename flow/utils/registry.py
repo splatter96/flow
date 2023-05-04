@@ -9,6 +9,76 @@ import flow.envs
 from flow.core.params import InitialConfig
 from flow.core.params import TrafficLightParams
 
+def make_create_env_rllib(params):
+    version = 0
+
+    exp_tag = params["exp_tag"]
+
+    base_env_name = params["env_name"].__name__
+
+    # deal with multiple environments being created under the same name
+    # all_envs = gym.envs.registry.items()
+    all_envs = gym.envs.registry.all()
+    # env_ids = [env_spec[1].id for env_spec in all_envs]
+    env_ids = [env_spec.id for env_spec in all_envs]
+    while "{}-v{}".format(base_env_name, version) in env_ids:
+        version += 1
+    env_name = "{}-v{}".format(base_env_name, version)
+
+    def create_env(create_params):
+        # print(create_params)
+        # print("\n\n\n")
+        # print(create_params["flow_params"])
+        # exit(0)
+
+        create_params = create_params["flow_params"]
+
+        network_class = params["network"]
+
+        env_params = create_params['env']
+        net_params = create_params['net']
+        initial_config = create_params.get('initial', InitialConfig())
+        traffic_lights = create_params.get("tls", TrafficLightParams())
+
+        sim_params = deepcopy(create_params['sim'])
+        vehicles = deepcopy(create_params['veh'])
+
+        network = network_class(
+            name=exp_tag,
+            vehicles=vehicles,
+            net_params=net_params,
+            initial_config=initial_config,
+            traffic_lights=traffic_lights,
+        )
+
+        # check if the environment is a single or multiagent environment, and
+        # get the right address accordingly
+        single_agent_envs = [env for env in dir(flow.envs)
+                             if not env.startswith('__')]
+
+        if isinstance(create_params["env_name"], str):
+            if create_params['env_name'] in single_agent_envs:
+                env_loc = 'flow.envs'
+            else:
+                env_loc = 'flow.envs.multiagent'
+            entry_point = env_loc + ':{}'.format(create_params["env_name"])
+        else:
+            entry_point = create_params["env_name"].__module__ + ':' + create_params["env_name"].__name__
+
+        # register the environment with OpenAI gym
+        register(
+            id=env_name,
+            entry_point=entry_point,
+            kwargs={
+                "env_params": env_params,
+                "sim_params": sim_params,
+                "network": network,
+                "simulator": create_params['simulator']
+            })
+
+        return gym.envs.make(env_name)
+
+    return create_env, env_name
 
 def make_create_env(params, version=0, render=None):
     """Create a parametrized flow environment compatible with OpenAI gym.
@@ -68,8 +138,10 @@ def make_create_env(params, version=0, render=None):
         base_env_name = params["env_name"].__name__
 
     # deal with multiple environments being created under the same name
-    all_envs = gym.envs.registry.items()
-    env_ids = [env_spec[1].id for env_spec in all_envs]
+    # all_envs = gym.envs.registry.items()
+    all_envs = gym.envs.registry.all()
+    # env_ids = [env_spec[1].id for env_spec in all_envs]
+    env_ids = [env_spec.id for env_spec in all_envs]
     while "{}-v{}".format(base_env_name, version) in env_ids:
         version += 1
     env_name = "{}-v{}".format(base_env_name, version)
