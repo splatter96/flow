@@ -967,9 +967,9 @@ class TraCIVehicle(KernelVehicle):
                 this_vel = self.get_speed(vid)
                 next_vel = max([this_vel + acc[i] * self.sim_step, np.array(0)])
                 if smooth:
-                    self.kernel_api.vehicle.slowDown(vid, next_vel.item(), 1e-3)
+                    self.kernel_api.vehicle.slowDown(vid, float(next_vel), 1e-3)
                 else:
-                    self.kernel_api.vehicle.setSpeed(vid, next_vel.item())
+                    self.kernel_api.vehicle.setSpeed(vid, float(next_vel))
 
     def apply_lane_change(self, veh_ids, direction):
         """See parent class."""
