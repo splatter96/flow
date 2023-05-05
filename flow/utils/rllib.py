@@ -93,7 +93,10 @@ def get_flow_params(config):
     """
     # collect all data from the json file
     if type(config) == dict:
-        flow_params = json.loads(config['env_config']['flow_params'])
+        if type(config['env_config']['flow_params']) == str:
+            flow_params = json.loads(config['env_config']['flow_params'])
+        else:
+            flow_params = config['env_config']['flow_params']
     else:
         flow_params = json.load(open(config, 'r'))
 

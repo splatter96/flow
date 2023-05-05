@@ -26,14 +26,13 @@ def make_create_env_rllib(params):
     env_name = "{}-v{}".format(base_env_name, version)
 
     def create_env(create_params):
-        # print(create_params)
+        # print(f"{create_params=}")
         # print("\n\n\n")
-        # print(create_params["flow_params"])
         # exit(0)
 
         create_params = create_params["flow_params"]
 
-        network_class = params["network"]
+        network_class = create_params["network"]
 
         env_params = create_params['env']
         net_params = create_params['net']
