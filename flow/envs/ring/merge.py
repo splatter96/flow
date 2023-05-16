@@ -5,6 +5,7 @@ This environment was used in:
 TODO(ak): add paper after it has been published.
 """
 
+from copy import deepcopy
 from flow.envs.base import Env
 from flow.core import rewards
 
@@ -93,15 +94,57 @@ class MergePOEnv(Env):
             shape=(1, ),
             dtype=np.float32)
 
+    # curriculum API
+    def get_task(self):
+        return self.network.vehicles.num_vehicles
+
+    def set_task(self, task):
+        from flow.core.params import VehicleParams, SumoCarFollowingParams
+        from flow.controllers import ContinuousRouter, SimCarFollowingController, RLController
+
+        print(f"Now using {task} vehicles")
+
+        vehicles = VehicleParams()
+        vehicles.add(
+            veh_id="idm-inner",
+            acceleration_controller=(SimCarFollowingController, {}),
+            routing_controller=(ContinuousRouter, {}),
+            car_following_params=SumoCarFollowingParams(
+                speed_mode="aggressive",
+                minGap=0.01,
+                max_speed=10,
+                tau=0.1,
+                ),
+            initial_speed=7,
+            num_vehicles=task)
+
+        # add our rl agent car
+        # this needs to be added after the idm cars to spawn on the outer ring
+        vehicles.add(
+            veh_id="rl",
+            acceleration_controller=(RLController, {}),
+            routing_controller=(ContinuousRouter, {}),
+            car_following_params=SumoCarFollowingParams(
+                speed_mode="aggressive",
+                max_speed=50
+                ),
+            color='red',
+            initial_speed=10,
+            num_vehicles=1)
+
+        self.network.vehicles = vehicles
+
+        self.initial_ids = deepcopy(self.network.vehicles.ids)
+
+        before = self.sim_params.restart_instance
+        self.sim_params.restart_instance = True
+        super().reset()
+        self.sim_params.restart_instance = before
+
     @property
     def action_space(self):
         """See class definition."""
         return self.a_space
-        # return Box(
-            # low=-abs(self.env_params.additional_params["max_decel"]),
-            # high=self.env_params.additional_params["max_accel"],
-            # shape=(1, ),
-            # dtype=np.float32)
 
     @property
     def observation_space(self):
@@ -118,7 +161,6 @@ class MergePOEnv(Env):
             high=1,
             shape=shape,
             dtype=np.float32)
-
 
     def _apply_rl_actions(self, rl_actions):
         """See class definition."""

@@ -8,6 +8,8 @@ from ray.tune.registry import register_env
 from ray.rllib.algorithms.ppo import PPOConfig
 import ray.rllib.algorithms.ppo as ppo
 
+from ray.tune import CLIReporter
+
 from flow.utils.rllib import FlowParamsEncoder, get_flow_params
 from flow.utils.registry import make_create_env, make_create_env_rllib
 
@@ -24,9 +26,16 @@ def objective(config):
 
     algo = ppo.PPO(config, env="myMergeEnv")
 
+    task = flow_config["veh"].num_vehicles - 1 # -1 to remove rl vehicle
     while True:
         train_res = algo.train()
         tune.report(**train_res)
+
+        #if training was successfull in current env, increase difficulty
+        if train_res["episode_reward_mean"] > 15.1:
+            print("Updating Task")
+            task += 2
+            algo.workers.foreach_worker(lambda ev: ev.foreach_env(lambda env: env.set_task(task)))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -49,15 +58,14 @@ if __name__ == "__main__":
     ray.init(address='auto')
 
     # Configure the algorithm
-    batch_size = 200
     config = (
             PPOConfig()
             .environment("myMergeEnv")
-            .rollouts(num_rollout_workers=3)
+            .rollouts(num_rollout_workers=1)
             .resources(num_cpus_per_worker=1)
             .training(
                 gamma=0.999,
-                train_batch_size=batch_size,
+                train_batch_size=21000,
                 lambda_=0.97,
                 use_gae=True,
                 kl_target=0.02,
@@ -76,11 +84,10 @@ if __name__ == "__main__":
     ######
     # Define our search space
     ######
-    config["env_config"]['flow_params']["sim"]["sim_step"] = tune.grid_search([0.1, 0.2])
-    config["env_config"]['flow_params']["veh"][0]["num_vehicles"] = tune.grid_search([10, 12])
+    config["env_config"]['flow_params']["sim"]["sim_step"] = tune.grid_search([0.1, 0.2, 0.5])
 
     # Stop when we've either reached 1000 training iterations or reward=15
-    stopping_criteria = {"training_iteration": 10, "episode_reward_mean": 15}
+    stopping_criteria = {"training_iteration": 1600}
 
     tuner = tune.Tuner(
         tune.with_resources(objective, ppo.PPO.default_resource_request(config)),
@@ -92,6 +99,9 @@ if __name__ == "__main__":
         run_config=air.RunConfig(
             stop=stopping_criteria,
             checkpoint_config=air.CheckpointConfig(checkpoint_frequency=10, checkpoint_at_end=True),
+            progress_reporter=CLIReporter(max_report_frequency=10, ),
+            log_to_file=("stdout.log", "stderr.log"),
+            verbose=1,
             ),
     )
     results = tuner.fit()

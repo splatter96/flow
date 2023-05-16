@@ -226,7 +226,6 @@ class TraCISimulation(KernelSimulation):
 
                 if not sim_params.print_warnings:
                     sumo_call.append("--no-warnings")
-                    sumo_call.append("true")
 
                 # add a reasonable delay in the visualization to see whats happening
                 sumo_call.append("--delay")

@@ -507,7 +507,7 @@ class TraCIKernelNetwork(BaseKernelNetwork):
 
         subprocess.call(
             [
-                'netconvert -c ' + self.net_path + self.cfgfn +
+                'netconvert -W -c ' + self.net_path + self.cfgfn +
                 ' --output-file=' + self.cfg_path + self.netfn +
                 ' --no-internal-links="false"'
             ],

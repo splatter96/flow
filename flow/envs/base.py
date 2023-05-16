@@ -28,8 +28,9 @@ from flow.core.util import ensure_dir
 from flow.core.kernel import Kernel
 from flow.utils.exceptions import FatalFlowError
 
+from ray.rllib.env.apis.task_settable_env import TaskSettableEnv
 
-class Env(gym.Env, metaclass=ABCMeta):
+class Env(TaskSettableEnv, metaclass=ABCMeta):
     """Base environment class.
 
     Provides the interface for interacting with various aspects of a traffic
