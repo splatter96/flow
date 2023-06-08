@@ -136,7 +136,7 @@ class Env(TaskSettableEnv, metaclass=ABCMeta):
         self.sim_params = deepcopy(sim_params)
         # check whether we should be rendering
         self.should_render = self.sim_params.render
-        self.sim_params.render = False
+        # self.sim_params.render = False
         time_stamp = ''.join(str(time.time()).split('.'))
         if os.environ.get("TEST_FLAG", 0):
             # 1.0 works with stress_test_start 10k times
@@ -224,7 +224,7 @@ class Env(TaskSettableEnv, metaclass=ABCMeta):
             self.render(reset=True)
         elif self.sim_params.render in [True, False]:
             # default to sumo-gui (if True) or sumo (if False)
-            if (self.sim_params.render is True) and self.sim_params.save_render:
+            if self.sim_params.save_render:
                 self.path = os.path.expanduser('~')+'/flow_rendering/' + self.network.name
                 os.makedirs(self.path, exist_ok=True)
         else:
@@ -715,10 +715,10 @@ class Env(TaskSettableEnv, metaclass=ABCMeta):
                 images_dir = self.path.split('/')[-1]
                 speedup = 10  # multiplier: renders video so that `speedup` seconds is rendered in 1 real second
                 fps = speedup//self.sim_step
-                p = subprocess.Popen(["ffmpeg", "-y", "-r", str(fps), "-i", self.path+"/frame_%06d.png",
-                                      "-pix_fmt", "yuv420p", "%s/../%s.mp4" % (self.path, images_dir)])
-                p.wait()
-                shutil.rmtree(self.path)
+                # p = subprocess.Popen(["ffmpeg", "-y", "-r", str(fps), "-i", self.path+"/frame_%06d.png",
+                                      # "-pix_fmt", "yuv420p", "%s/../%s.mp4" % (self.path, images_dir)])
+                # p.wait()
+                # shutil.rmtree(self.path)
         except FileNotFoundError:
             # Skip automatic termination. Connection is probably already closed
             print(traceback.format_exc())
@@ -748,7 +748,8 @@ class Env(TaskSettableEnv, metaclass=ABCMeta):
                 if len(self.frame_buffer) > buffer_length:
                     self.frame_buffer.pop(0)
                     self.sights_buffer.pop(0)
-        elif (self.sim_params.render is True) and self.sim_params.save_render:
+        # elif (self.sim_params.render is True) and self.sim_params.save_render:
+        elif  self.sim_params.save_render:
             # sumo-gui render
             self.k.kernel_api.gui.screenshot("View #0", self.path+"/frame_%06d.png" % self.time_counter)
 
