@@ -393,10 +393,12 @@ class Env(TaskSettableEnv, metaclass=ABCMeta):
 
         # collect information of the state of the network based on the
         # environment class used
-        self.state = np.asarray(states).T
+        # self.state = np.asarray(states).T
+        self.state = states
 
         # collect observation new state associated with action
-        next_observation = np.copy(states)
+        # next_observation = np.copy(states)
+        next_observation = deepcopy(states)
 
         # check if episode should terminate
         done = self.compute_dones()
@@ -547,10 +549,12 @@ class Env(TaskSettableEnv, metaclass=ABCMeta):
 
         # collect information of the state of the network based on the
         # environment class used
-        self.state = np.asarray(states).T
+        # self.state = np.asarray(states).T
+        self.state = states
 
         # observation associated with the reset (no warm-up steps)
-        observation = np.copy(states)
+        # observation = np.copy(states)
+        observation = deepcopy(states)
 
         # perform (optional) warm-up steps before training
         for _ in range(self.env_params.warmup_steps):
